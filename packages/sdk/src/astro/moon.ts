@@ -3,15 +3,18 @@ import { type JdTT, asTT } from '../time/julian.js';
 const DEG = Math.PI / 180;
 
 /**
- * Thoi diem TRUNG TAM CUA TRANG MOI (New Moon) theo TT.
- * Meeus ch.49 BAN DAY DU: 25 so hang tuan hoan + 14 hieu chinh hanh tinh A1..A14.
+ * The instant of NEW MOON (conjunction) in TT.
  *
- * Vi sao phai co A1..A14: bien do cong don toi ~0.00129 ngay = 112 GIAY.
- * Cac ban rut gon pho bien bo han phan nay — do la nguon sai lon nhat cua chung.
- * Do chinh xac cua ban day du (Meeus doi chieu ly thuyet day du 1980-2020):
- * sai so trung binh ~4 giay, toi da ~17 giay.
+ * The COMPLETE Meeus ch. 49 method: 25 periodic terms plus the 14 planetary
+ * corrections A1..A14.
  *
- * @param k so thu tu ky trang moi tinh tu trang moi ngay 2000-01-06.
+ * Why A1..A14 matter: their combined amplitude reaches ~0.00129 days = 112
+ * SECONDS. The widely circulated abridged ports drop them entirely, which is
+ * their single largest source of error. Meeus reports the complete method as
+ * accurate to ~4 s on average and ~17 s at worst (checked against the full
+ * theory over 1980–2020).
+ *
+ * @param k the lunation number, counted from the new moon of 2000-01-06.
  */
 export function newMoonTT(k: number): JdTT {
   const T = k / 1236.85;
@@ -19,7 +22,7 @@ export function newMoonTT(k: number): JdTT {
   const T3 = T2 * T;
   const T4 = T3 * T;
 
-  // Pha trung binh
+  // Mean phase
   let jde =
     2451550.09766 +
     29.530588861 * k +
@@ -30,15 +33,15 @@ export function newMoonTT(k: number): JdTT {
   // Do lech tam quy dao Trai Dat
   const E = 1 - 0.002516 * T - 0.0000074 * T2;
 
-  const M = (2.5534 + 29.1053567 * k - 0.0000014 * T2 - 0.00000011 * T3) * DEG; // di thuong Mat Troi
+  const M = (2.5534 + 29.1053567 * k - 0.0000014 * T2 - 0.00000011 * T3) * DEG; // Sun's mean anomaly
   const Mp =
-    (201.5643 + 385.81693528 * k + 0.0107582 * T2 + 0.00001238 * T3 - 0.000000058 * T4) * DEG; // di thuong Mat Trang
+    (201.5643 + 385.81693528 * k + 0.0107582 * T2 + 0.00001238 * T3 - 0.000000058 * T4) * DEG; // Moon's mean anomaly
   const F =
-    (160.7108 + 390.67050284 * k - 0.0016118 * T2 - 0.00000227 * T3 + 0.000000011 * T4) * DEG; // doi so vi do
-  const Om = (124.7746 - 1.56375588 * k + 0.0020672 * T2 + 0.00000215 * T3) * DEG; // nut len
+    (160.7108 + 390.67050284 * k - 0.0016118 * T2 - 0.00000227 * T3 + 0.000000011 * T4) * DEG; // argument of latitude
+  const Om = (124.7746 - 1.56375588 * k + 0.0020672 * T2 + 0.00000215 * T3) * DEG; // ascending node
 
   const sin = Math.sin;
-  // 25 so hang tuan hoan cho TRANG MOI (Meeus 49, bang ung voi pha moi)
+  // The 25 periodic terms for NEW MOON (Meeus 49, new-moon column)
   jde +=
     -0.4072 * sin(Mp) +
     0.17241 * E * sin(M) +
@@ -66,7 +69,7 @@ export function newMoonTT(k: number): JdTT {
     0.00002 * sin(3 * Mp + M) +
     0.00002 * sin(4 * Mp);
 
-  // 14 hieu chinh hanh tinh — PHAN MA BAN RUT GON BO DI (toi 112 giay)
+  // The 14 planetary corrections — THE PART ABRIDGED PORTS DROP (up to 112 s)
   const A: ReadonlyArray<readonly [amp: number, deg: number]> = [
     [0.000325, 299.77 + 0.107408 * k - 0.009173 * T2],
     [0.000165, 251.88 + 0.016321 * k],
@@ -88,6 +91,6 @@ export function newMoonTT(k: number): JdTT {
   return asTT(jde);
 }
 
-/** So ky trang moi gan dung chua thoi diem jd. */
+/** Approximate lunation number containing the instant `jd`. */
 export const newMoonIndexNear = (jd: number): number =>
   Math.round((jd - 2451550.09766) / 29.530588861);

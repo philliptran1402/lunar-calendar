@@ -1,28 +1,28 @@
 /**
- * Thang thoi gian. Diem mau chot cua do chinh xac: PHAI phan biet
- *   TT (Terrestrial Time)  — thang dung trong cong thuc thien van
- *   UT (Universal Time)    — thang dung cho lich dan dung
- * Hai thang lech nhau DeltaT (~70 giay hien nay, ~1570 giay nam 1000).
- * Lan lon hai cai nay la nguon sai ngay CO HE THONG.
+ * Time scales. The crux of getting this right: TT and UT must never be mixed.
+ *   TT (Terrestrial Time)  — the scale astronomical formulae are expressed in
+ *   UT (Universal Time)    — the scale civil calendars are kept in
+ * They differ by ΔT (~70 s today, ~1570 s in the year 1000). Conflating the two
+ * is a SYSTEMATIC source of off-by-one-day errors.
  */
 
-/** Julian Day theo thang TT — chi dung trong tinh toan thien van. */
+/** A Julian Day on the TT scale — for astronomical computation only. */
 export type JdTT = number & { readonly __scale: 'TT' };
-/** Julian Day theo thang UT — dung de quy ra ngay/gio dia phuong. */
+/** A Julian Day on the UT scale — used to derive local dates and times. */
 export type JdUT = number & { readonly __scale: 'UT' };
 
 export const asTT = (jd: number): JdTT => jd as JdTT;
 export const asUT = (jd: number): JdUT => jd as JdUT;
 
 export const J2000 = 2451545.0;
-/** The ky Julius tu J2000, dung cho moi chuoi thien van. */
+/** Julian centuries since J2000, the argument of every series below. */
 export const centuriesFromJ2000 = (jdTT: JdTT): number => (jdTT - J2000) / 36525;
 
 const floor = Math.floor;
 
 /**
- * Ngay duong lich (Gregorian/Julian) -> Julian Day.
- * `day` co the co phan thap phan de bieu dien gio trong ngay.
+ * Calendar date (Gregorian/Julian) → Julian Day.
+ * `day` may carry a fraction to express the time of day.
  */
 export function julianDay(year: number, month: number, day: number): number {
   let y = year;
@@ -31,7 +31,7 @@ export function julianDay(year: number, month: number, day: number): number {
     y -= 1;
     m += 12;
   }
-  // Moc doi lich Julius -> Gregory: 15/10/1582
+  // Julian → Gregorian changeover: 15 Oct 1582
   const gregorian = year > 1582 || (year === 1582 && (month > 10 || (month === 10 && day >= 15)));
   const b = gregorian ? 2 - floor(y / 100) + floor(floor(y / 100) / 4) : 0;
   return floor(365.25 * (y + 4716)) + floor(30.6001 * (m + 1)) + day + b - 1524.5;
@@ -46,7 +46,7 @@ export interface CivilDateTime {
   second: number;
 }
 
-/** Julian Day -> ngay duong lich (co gio). */
+/** Julian Day → calendar date with time of day. */
 export function fromJulianDay(jd: number): CivilDateTime {
   const z = floor(jd + 0.5);
   const f = jd + 0.5 - z;
@@ -76,22 +76,25 @@ export function fromJulianDay(jd: number): CivilDateTime {
 }
 
 /**
- * So ngay lich (so nguyen) chua thoi diem jd theo mui gio `tzHours`.
- * Day la ham quyet dinh "su kien roi vao NGAY NAO" — trai tim cua lich am.
+ * The integer day number containing instant `jdUT` in timezone `tzHours`.
+ *
+ * This single function decides WHICH DAY an event falls on — the heart of a
+ * lunisolar calendar, and where a one-second error becomes a one-day error.
  */
 export function localMidnightDayNumber(jdUT: JdUT, tzHours: number): number {
   return floor(jdUT + 0.5 + tzHours / 24);
 }
 
-/** Julian Day luc 00:00 gio dia phuong cua mot so ngay lich. */
+/** The Julian Day at 00:00 local time of a given day number. */
 export const dayNumberToJdUT = (dayNumber: number, tzHours: number): JdUT =>
   asUT(dayNumber - 0.5 - tzHours / 24);
 
 /**
- * So ngay lich -> ngay duong lich.
- * Nghich dao chinh xac cua localMidnightDayNumber(jd, 0): vi
- * dayNumber = floor(jd + 0.5) nen jd tai nua dem la dayNumber - 0.5.
- * (Nham dau cong/tru o day la loi LECH MOT NGAY rat kho thay.)
+ * Day number → calendar date.
+ *
+ * The exact inverse of `localMidnightDayNumber(jd, 0)`: since
+ * `dayNumber = floor(jd + 0.5)`, midnight sits at `dayNumber - 0.5`.
+ * (Getting this sign wrong produces a one-day shift that is very hard to spot.)
  */
 export const dayNumberToCivilDate = (dayNumber: number): { year: number; month: number; day: number } => {
   const { year, month, day } = fromJulianDay(dayNumber - 0.5);

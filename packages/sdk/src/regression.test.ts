@@ -6,18 +6,22 @@ import { test } from 'node:test';
 import { solarToLunar } from './vn/index.js';
 
 /**
- * TEST HOI QUY tren 73.414 ngay (1900-2100).
+ * REGRESSION TEST over 73,414 days (1900-2100).
  *
- * File `legacy-snapshot-1900-2100.csv` la ban chup DONG BANG cua ban cai dat
- * pho bien (thuat toan Ho Ngoc Duc) — KHONG phai chuan dung, ma la moc so sanh.
- * SDK nay lech 122 ngay so voi no, va MOI truong hop lech deu da truy nguyen nhan:
+ * `legacy-snapshot-1900-2100.csv` is a FROZEN snapshot of the widely used port
+ * (the Hồ Ngọc Đức algorithm). It is NOT a source of truth — it is a baseline
+ * to compare against. This SDK differs from it on 122 days, and every one of
+ * those has been traced:
  *
- *   - 1944, 1967, 2072, 2077: soc cach nua dem 2-72 giay; DeltaT cua ban cu
- *     lech 56-145s (co luc AM) day sang ngay khac. SDK nay danh dau `uncertain`.
- *   - 2054, 2062: ban cu tra ve NGAY AM = 0 (vd "0/4/2054") — loi off-by-one.
+ *   - 1944, 1967, 2072, 2077: the conjunction falls 2-72 s from midnight, and
+ *     the old port's ΔT is off by 56-145 s (sometimes NEGATIVE), pushing it
+ *     onto the other day. This SDK flags these days `uncertain`.
+ *   - 2054, 2062: the old port returns LUNAR DAY 0 (e.g. "0/4/2054") — an
+ *     outright off-by-one bug.
  *
- * Muc dich: neu ai sua engine lam so lech DOI KHAC 122, test do ngay —
- * buoc phai giai thich duoc vi sao, khong de lech am tham.
+ * The point: if a change to the engine moves the count away from 122, this
+ * test fails immediately and the difference has to be explained rather than
+ * drifting in unnoticed.
  */
 const FIXTURE = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -26,9 +30,9 @@ const FIXTURE = join(
 
 const EXPECTED_DIFFERENCES = 122;
 
-test('Doi chieu 73.414 ngay voi ban cai dat pho bien', () => {
+test('cross-check 73,414 days against the widely used port', () => {
   const rows = readFileSync(FIXTURE, 'utf8').trim().split('\n').slice(1);
-  assert.equal(rows.length, 73414, 'bo du lieu doi chieu bi thay doi');
+  assert.equal(rows.length, 73414, 'the comparison fixture has changed');
 
   const diffs: string[] = [];
   for (const row of rows) {
@@ -42,28 +46,28 @@ test('Doi chieu 73.414 ngay voi ban cai dat pho bien', () => {
   }
 
   const agreement = ((1 - diffs.length / rows.length) * 100).toFixed(4);
-  console.log(`      → khop ${rows.length - diffs.length}/${rows.length} (${agreement}%), lech ${diffs.length}`);
+  console.log(`      → agree on ${rows.length - diffs.length}/${rows.length} (${agreement}%), differ on ${diffs.length}`);
   assert.equal(
     diffs.length,
     EXPECTED_DIFFERENCES,
-    `so ngay lech doi tu ${EXPECTED_DIFFERENCES} thanh ${diffs.length} — phai giai thich duoc nguyen nhan`,
+    `the number of differing days moved from ${EXPECTED_DIFFERENCES} to ${diffs.length} — the cause must be explained`,
   );
 });
 
-test('Ngay am lich LUON trong 1..30 (ban cu tung tra ve 0)', () => {
+test('the lunar day is ALWAYS within 1..30 (the old port returned 0)', () => {
   const rows = readFileSync(FIXTURE, 'utf8').trim().split('\n').slice(1);
   for (const row of rows) {
     const [d, m, y] = row.split(',')[0]!.split('/').map(Number) as [number, number, number];
     const l = solarToLunar(d, m, y);
-    assert.ok(l.day >= 1 && l.day <= 30, `${d}/${m}/${y} -> ngay am ${l.day}`);
-    assert.ok(l.month >= 1 && l.month <= 12, `${d}/${m}/${y} -> thang am ${l.month}`);
+    assert.ok(l.day >= 1 && l.day <= 30, `${d}/${m}/${y} -> lunar day ${l.day}`);
+    assert.ok(l.month >= 1 && l.month <= 12, `${d}/${m}/${y} -> lunar month ${l.month}`);
   }
 });
 
-test('Cac ngay lech deu roi vao 6 doan da biet', () => {
+test('every differing day falls in one of the six traced runs', () => {
   const rows = readFileSync(FIXTURE, 'utf8').trim().split('\n').slice(1);
-  // 2073 co mat vi doan lech bat dau 9/12/2072 keo dai sang thang 1/2073.
-  // So ngay tung nam: 1944:30 · 1967:30 · 2054:1 · 2062:1 · 2072:23 · 2073:7 · 2077:30
+  // 2073 appears because the run starting 9/12/2072 spills over into Jan 2073.
+  // Days per year: 1944:30 · 1967:30 · 2054:1 · 2062:1 · 2072:23 · 2073:7 · 2077:30
   const KNOWN_YEARS = new Set([1944, 1967, 2054, 2062, 2072, 2073, 2077]);
   for (const row of rows) {
     const [solar, lunar, leap] = row.split(',');
@@ -71,7 +75,7 @@ test('Cac ngay lech deu roi vao 6 doan da biet', () => {
     const [ld, lm, ly] = lunar!.split('/').map(Number);
     const got = solarToLunar(d, m, y);
     if (got.day !== ld || got.month !== lm || got.year !== ly || got.leap !== (leap === '1')) {
-      assert.ok(KNOWN_YEARS.has(y), `lech o nam KHONG nam trong danh sach da truy: ${solar}`);
+      assert.ok(KNOWN_YEARS.has(y), `difference in a year that is NOT on the traced list: ${solar}`);
     }
   }
 });

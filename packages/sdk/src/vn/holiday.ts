@@ -1,16 +1,16 @@
 import type { LunarDate } from '../calendar/lunisolar.js';
 
 export interface Holiday {
-  /** Khoa on dinh de dich sang ngon ngu khac (UI khong so khop chuoi tieng Viet). */
+  /** A stable key for translation, so UIs never match on Vietnamese strings. */
   id: string;
   name: string;
-  /** 'solar' = theo duong lich, 'lunar' = theo am lich */
+  /** 'solar' = fixed solar date, 'lunar' = fixed lunar date */
   kind: 'solar' | 'lunar';
-  /** Ngay nghi chinh thuc theo Bo luat Lao dong VN */
+  /** A statutory public holiday under the Vietnamese Labour Code */
   publicHoliday?: boolean;
 }
 
-/** Le theo duong lich: 'dd/mm' */
+/** Solar-date holidays, keyed 'dd/mm'. */
 const SOLAR_HOLIDAYS: Record<string, Holiday> = {
   '1/1': { id: 'solar-1-1', name: 'Tết Dương lịch', kind: 'solar', publicHoliday: true },
   '9/1': { id: 'solar-9-1', name: 'Ngày Học sinh – Sinh viên', kind: 'solar' },
@@ -37,7 +37,7 @@ const SOLAR_HOLIDAYS: Record<string, Holiday> = {
   '25/12': { id: 'solar-25-12', name: 'Giáng sinh', kind: 'solar' },
 };
 
-/** Le theo am lich: 'dd/mm' */
+/** Lunar-date holidays, keyed 'dd/mm'. */
 const LUNAR_HOLIDAYS: Record<string, Holiday> = {
   '1/1': { id: 'lunar-1-1', name: 'Tết Nguyên Đán', kind: 'lunar', publicHoliday: true },
   '2/1': { id: 'lunar-2-1', name: 'Mùng 2 Tết', kind: 'lunar', publicHoliday: true },
@@ -54,8 +54,9 @@ const LUNAR_HOLIDAYS: Record<string, Holiday> = {
 };
 
 /**
- * Ngay le cua mot ngay. Ghep ca duong lich va am lich.
- * Giao thua = ngay cuoi cung cua thang Chap (29 hoac 30 tuy nam).
+ * Holidays falling on a given day, combining the solar and lunar lists.
+ * New Year's Eve is the last day of the 12th lunar month — 29 or 30, depending
+ * on the year.
  */
 export function holidaysOf(
   solar: { day: number; month: number },

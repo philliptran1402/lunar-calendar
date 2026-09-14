@@ -4,6 +4,10 @@ import { asTT, dayNumberToJdUT, julianDay, localMidnightDayNumber, asUT } from '
 import { deltaTSeconds } from '../time/deltat.js';
 import { VN_TIMEZONE } from './index.js';
 
+/**
+ * The 24 solar terms, starting at the vernal equinox (solar longitude 0°).
+ * Solar terms belong to the SOLAR year — they track the seasons, not the Moon.
+ */
 export const SOLAR_TERMS = [
   'Xuân phân', 'Thanh minh', 'Cốc vũ', 'Lập hạ', 'Tiểu mãn', 'Mang chủng',
   'Hạ chí', 'Tiểu thử', 'Đại thử', 'Lập thu', 'Xử thử', 'Bạch lộ',
@@ -12,9 +16,9 @@ export const SOLAR_TERMS = [
 ] as const;
 export type SolarTerm = (typeof SOLAR_TERMS)[number];
 
-/** Cung 15 do cua kinh do BIEU KIEN luc 00:00 gio dia phuong. */
+/** Which 15° sector the APPARENT solar longitude occupies at local midnight. */
 function sectorAtLocalMidnight(dayNumber: number, tz: TimeZoneResolver): number {
-  // Mui gio co the la ham theo thoi gian -> uoc luong mot lan roi giai
+  // The timezone may vary with time — resolve it from a first estimate
   const offset = typeof tz === 'number' ? tz : tz(dayNumberToJdUT(dayNumber, 0));
   const jdUt = dayNumberToJdUT(dayNumber, offset);
   const jdTT = asTT(jdUt + deltaTSeconds(jdUt) / 86400);
@@ -25,9 +29,11 @@ const dayNumberOf = (d: number, m: number, y: number): number =>
   localMidnightDayNumber(asUT(julianDay(y, m, d)), 0);
 
 /**
- * Tiet khi cua mot ngay duong lich.
- * Quy uoc lich Viet: ngay MA tiet khi bat dau mang ten tiet khi MOI,
- * nen phai lay cung o CUOI ngay (= nua dem ke tiep), khong phai dau ngay.
+ * The solar term a calendar day belongs to.
+ *
+ * Vietnamese convention: the day on which a term BEGINS carries the NEW term's
+ * name, so the sector is read at the END of the day (the following midnight),
+ * not at its start.
  */
 export function solarTermIndexOf(day: number, month: number, year: number, tz: TimeZoneResolver = VN_TIMEZONE): number {
   return sectorAtLocalMidnight(dayNumberOf(day, month, year) + 1, tz);
@@ -37,7 +43,7 @@ export function solarTermOf(day: number, month: number, year: number, tz: TimeZo
   return SOLAR_TERMS[solarTermIndexOf(day, month, year, tz)]!;
 }
 
-/** Ngay nay co phai ngay BAT DAU mot tiet khi moi khong. */
+/** Whether a new solar term begins on this day. */
 export function isSolarTermStart(day: number, month: number, year: number, tz: TimeZoneResolver = VN_TIMEZONE): boolean {
   const dn = dayNumberOf(day, month, year);
   return sectorAtLocalMidnight(dn + 1, tz) !== sectorAtLocalMidnight(dn, tz);

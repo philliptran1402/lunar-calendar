@@ -2,22 +2,23 @@ import type { JdTT, JdUT } from './julian.js';
 import { asUT } from './julian.js';
 
 /**
- * DeltaT = TT - UT (giay).
+ * ΔT = TT − UT, in seconds.
  *
- * Vi sao quan trong: cong thuc thien van cho ra thoi diem theo TT, con lich
- * dung UT. Bo qua DeltaT (hoac tinh tho) se day su kien sai ~70 giay hien nay
- * va ~1570 giay o nam 1000 — du de doi ngay khi su kien roi gan nua dem,
- * va sai LECH HE THONG chu khong ngau nhien.
+ * Why it matters: the astronomical series yield instants in TT, while calendars
+ * are kept in UT. Ignoring ΔT (or approximating it crudely) misplaces events by
+ * ~70 s today and ~1570 s in the year 1000 — enough to change the date when an
+ * event falls near midnight, and the error is SYSTEMATIC rather than random.
  *
- * Nguon: Espenak & Meeus (2006), da thuc tung doan, NASA dung cho lich nhat thuc.
- * https://eclipse.gsfc.nasa.gov/SEhelp/deltatpoly2004.html
+ * Source: Espenak & Meeus (2006) piecewise polynomials, as used by NASA for
+ * eclipse predictions. https://eclipse.gsfc.nasa.gov/SEhelp/deltatpoly2004.html
  */
 
 /**
- * Gia tri DO DUOC (IERS/USNO) cho giai doan hien dai.
- * Da thuc 2005–2050 cua Espenak–Meeus du doan ~75.1s cho 2026, trong khi
- * quan trac thuc ~69–71s. Voi giai doan nay ta dung so do, khong dung du doan.
- * Don vi: giay. Nen cap nhat dinh ky tu https://maia.usno.navy.mil/products/deltaT
+ * MEASURED values (IERS/USNO) for the modern era, in seconds.
+ *
+ * The Espenak–Meeus 2005–2050 polynomial predicts ~75.1 s for 2026 while the
+ * observed value is ~69–71 s, so measurements win wherever we have them.
+ * Refresh periodically from https://maia.usno.navy.mil/products/deltaT
  */
 const MEASURED: ReadonlyArray<readonly [year: number, dt: number]> = [
   [1980, 50.5], [1985, 54.3], [1990, 56.9], [1995, 60.8], [2000, 63.8],
@@ -28,7 +29,7 @@ const MEASURED: ReadonlyArray<readonly [year: number, dt: number]> = [
 const MEASURED_FROM = MEASURED[0]![0];
 const MEASURED_TO = MEASURED[MEASURED.length - 1]![0];
 
-/** Nam thap phan tu Julian Day (du chinh xac cho DeltaT). */
+/** Decimal year from a Julian Day (precise enough for ΔT). */
 export const decimalYearFromJd = (jd: number): number => 2000 + (jd - 2451545.0) / 365.25;
 
 function interpolateMeasured(year: number): number {
@@ -40,7 +41,7 @@ function interpolateMeasured(year: number): number {
   return MEASURED[MEASURED.length - 1]![1];
 }
 
-/** Espenak & Meeus (2006) — da thuc tung doan, don vi giay. */
+/** Espenak & Meeus (2006) — piecewise polynomials, in seconds. */
 function espenakMeeus(year: number): number {
   const u = (y: number, c: number) => (y - c) / 100;
   let t: number;
@@ -121,7 +122,7 @@ function espenakMeeus(year: number): number {
   return -20 + 32 * u2 * u2;
 }
 
-/** Cho phep nguoi dung nap gia tri DeltaT rieng (vd tu IERS moi hon). */
+/** Supply your own ΔT source (for example a fresher IERS series). */
 export type DeltaTProvider = (decimalYear: number) => number;
 
 let provider: DeltaTProvider | null = null;
@@ -130,13 +131,13 @@ export const setDeltaTProvider = (fn: DeltaTProvider | null): void => {
 };
 
 /**
- * So nam chuyen tiep tu "so do" sang "du doan". Khong noi truc tiep vi da thuc
- * Espenak-Meeus lech cao o giai doan nay (75.2s cho 2026 vs ~69.3s do duoc):
- * noi truc tiep se tao BUOC NHAY ~6 giay ngay tai bien — sai lech he thong.
+ * Years spent blending measurements into prediction. A hard handover would
+ * introduce a ~6-second STEP at the boundary (the polynomial reads 75.2 s for
+ * 2026 against ~69.3 s measured) — i.e. a systematic error.
  */
 const BLEND_YEARS = 25;
 
-/** DeltaT (giay) tai thoi diem jd. */
+/** ΔT in seconds at instant `jd`. */
 export function deltaTSeconds(jd: number): number {
   const year = decimalYearFromJd(jd);
   if (provider) return provider(year);
@@ -144,7 +145,7 @@ export function deltaTSeconds(jd: number): number {
   if (year <= MEASURED_FROM) return espenakMeeus(year);
   if (year <= MEASURED_TO) return interpolateMeasured(year);
 
-  // Sau moc do cuoi: pha dan tu gia tri do duoc sang da thuc du doan
+  // Past the last measurement: fade from the measured value into the polynomial
   const last = MEASURED[MEASURED.length - 1]![1];
   if (year < MEASURED_TO + BLEND_YEARS) {
     const w = (year - MEASURED_TO) / BLEND_YEARS; // 0 -> 1
@@ -153,5 +154,5 @@ export function deltaTSeconds(jd: number): number {
   return espenakMeeus(year);
 }
 
-/** TT -> UT. */
+/** Convert TT to UT. */
 export const ttToUt = (jdTT: JdTT): JdUT => asUT(jdTT - deltaTSeconds(jdTT) / 86400);

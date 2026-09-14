@@ -3,22 +3,22 @@ import { centuriesFromJ2000, type JdTT } from '../time/julian.js';
 const DEG = Math.PI / 180;
 
 /**
- * Chuong sai kinh do (nutation in longitude), don vi DO.
- * Meeus ch.22, dang rut gon — sai so ~0.5" (~12 giay thoi gian Mat Troi).
- * Bo qua chuong sai lam lech kinh do BIEU KIEN toi 17.2" (~7 phut) —
- * du de doi ngay tiet khi.
+ * Nutation in longitude, in DEGREES.
+ *
+ * Meeus ch. 22. Omitting nutation shifts the APPARENT longitude by up to
+ * 17.2" (~7 minutes of time) — enough to move a solar term onto the wrong day.
  */
 export function nutationInLongitude(jdTT: JdTT): number {
   const T = centuriesFromJ2000(jdTT);
   const T2 = T * T;
-  const D = (297.85036 + 445267.1114800 * T - 0.0019142 * T2) * DEG; // sai phan trung binh
-  const M = (357.52772 + 35999.0503400 * T - 0.0001603 * T2) * DEG; // di thuong Mat Troi
-  const Mp = (134.96298 + 477198.8673980 * T + 0.0086972 * T2) * DEG; // di thuong Mat Trang
-  const F = (93.27191 + 483202.0175380 * T - 0.0036825 * T2) * DEG; // doi so vi do
-  const Om = (125.04452 - 1934.1362610 * T + 0.0020708 * T2) * DEG; // nut len
+  const D = (297.85036 + 445267.1114800 * T - 0.0019142 * T2) * DEG; // mean elongation
+  const M = (357.52772 + 35999.0503400 * T - 0.0001603 * T2) * DEG; // Sun's mean anomaly
+  const Mp = (134.96298 + 477198.8673980 * T + 0.0086972 * T2) * DEG; // Moon's mean anomaly
+  const F = (93.27191 + 483202.0175380 * T - 0.0036825 * T2) * DEG; // argument of latitude
+  const Om = (125.04452 - 1934.1362610 * T + 0.0020708 * T2) * DEG; // ascending node
 
   const sin = Math.sin;
-  // 9 so hang lon nhat cua chuoi IAU1980 (don vi 0.0001")
+  // Largest terms of the IAU 1980 series (units of 0.0001")
   const t = 0.0001;
   const arcsec =
     t * (-171996 - 174.2 * T) * sin(Om) +

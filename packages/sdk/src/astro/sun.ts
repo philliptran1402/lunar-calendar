@@ -5,11 +5,13 @@ const DEG = Math.PI / 180;
 const norm360 = (x: number): number => ((x % 360) + 360) % 360;
 
 /* ---------------------------------------------------------------------------
- * VSOP87D (rut gon) cho kinh do nhat tam cua Trai Dat.
- * Moi so hang: [A, B, C] -> A * cos(B + C * tau), tau = thien nien ky Julius.
- * Don vi A: 1e-8 radian. Giu cac so hang >= ~100 (0.2") — phan bo di dong gop
- * duoi muc sai so muc tieu, doi lai kich thuoc bundle nho.
- * Nguon: Meeus, Astronomical Algorithms 2nd ed., Appendix III (VSOP87 abridged).
+ * Truncated VSOP87D series for the heliocentric longitude of the Earth.
+ *
+ * Each term is [A, B, C] → A * cos(B + C * tau), with tau in Julian millennia
+ * and A in units of 1e-8 radians. Terms below ~100 (0.2") are dropped: they
+ * contribute less than the target error while costing bundle size.
+ *
+ * Source: Meeus, Astronomical Algorithms 2nd ed., Appendix III (abridged VSOP87).
  * ------------------------------------------------------------------------ */
 const L0: ReadonlyArray<readonly [number, number, number]> = [
   [175347046, 0, 0], [3341656, 4.6692568, 6283.07585], [34894, 4.6261, 12566.1517],
@@ -67,40 +69,39 @@ const L4: ReadonlyArray<readonly [number, number, number]> = [[114, 3.142, 0], [
 const series = (terms: ReadonlyArray<readonly [number, number, number]>, tau: number): number =>
   terms.reduce((sum, [a, b, c]) => sum + a * Math.cos(b + c * tau), 0);
 
-/**
- * Kinh do HINH HOC cua Mat Troi (do), he toa do dong cua ngay (VSOP87 + FK5).
- */
+/** The Sun's GEOMETRIC longitude in degrees, mean equinox of date (VSOP87 + FK5). */
 export function sunGeometricLongitude(jdTT: JdTT): number {
-  const tau = centuriesFromJ2000(jdTT) / 10; // thien nien ky
+  const tau = centuriesFromJ2000(jdTT) / 10; // Julian millennia
   const lEarth =
     (series(L0, tau) +
       series(L1, tau) * tau +
       series(L2, tau) * tau ** 2 +
       series(L3, tau) * tau ** 3 +
       series(L4, tau) * tau ** 4) *
-    1e-8; // radian
+    1e-8; // radians
 
-  // Kinh do Mat Troi nhin tu Trai Dat = kinh do Trai Dat + 180 do
+  // Seen from Earth, the Sun's longitude is Earth's longitude + 180°
   let theta = norm360((lEarth * 180) / Math.PI + 180);
 
-  // VSOP87 -> FK5 (Meeus 32.3). So hang thu hai ti le tan(vi do); vi do cua
-  // Mat Troi < 1" nen bo qua, chi giu hang co dinh -0.09033".
+  // VSOP87 → FK5 (Meeus 32.3). The second term scales with tan(latitude); the
+  // Sun's latitude is under 1", so only the constant -0.09033" is kept.
   return norm360(theta - 0.09033 / 3600);
 }
 
 /**
- * Kinh do BIEU KIEN cua Mat Troi (do) — dung cai NAY cho tiet khi.
- * = hinh hoc + chuong sai + tinh sai (aberration).
- * Thieu hai hieu chinh nay lam lech toi ~15 phut thoi gian (Meeus ch.25).
+ * The Sun's APPARENT longitude in degrees — use THIS for solar terms.
+ *
+ * Apparent = geometric + nutation + annual aberration. Omitting those two
+ * corrections shifts the result by up to ~15 minutes of time (Meeus ch. 25).
  */
 export function sunApparentLongitude(jdTT: JdTT): number {
   const theta = sunGeometricLongitude(jdTT);
-  const dPsi = nutationInLongitude(jdTT); // chuong sai (do)
-  const aberration = -20.4898 / 3600 / earthSunDistance(jdTT); // tinh sai nam (do)
+  const dPsi = nutationInLongitude(jdTT); // nutation, degrees
+  const aberration = -20.4898 / 3600 / earthSunDistance(jdTT); // annual aberration, degrees
   return norm360(theta + dPsi + aberration);
 }
 
-/** Khoang cach Trai Dat - Mat Troi (AU) — can cho tinh sai. */
+/** Earth–Sun distance in AU, needed by the aberration term. */
 function earthSunDistance(jdTT: JdTT): number {
   const T = centuriesFromJ2000(jdTT);
   const m = (357.52911 + 35999.05029 * T - 0.0001537 * T * T) * DEG;
@@ -114,8 +115,8 @@ function earthSunDistance(jdTT: JdTT): number {
 }
 
 /**
- * Cong thuc do chinh xac THAP cua Meeus (25.10) — giu lai de so sanh/kiem thu.
- * Sai so ~0.01 do = 36" ~ 15 phut thoi gian. KHONG dung cho lich.
+ * Meeus's LOW-accuracy formula (25.10), kept only for comparison and testing.
+ * Accurate to ~0.01° = 36", i.e. ~15 minutes of time. NOT fit for calendar use.
  */
 export function sunApparentLongitudeLowPrecision(jdTT: JdTT): number {
   const T = centuriesFromJ2000(jdTT);

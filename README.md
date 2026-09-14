@@ -54,12 +54,44 @@ What sets it apart: when a new moon falls within seconds of local midnight — t
 
 📖 Algorithm details, measured accuracy and an analysis of all 122 divergent days: **[packages/sdk/README.md](packages/sdk/README.md)**
 
+## Running with Docker
+
+No Node or pnpm on your machine? Clone and run:
+
+```bash
+git clone https://github.com/philliptran1402/lunar-calendar.git
+cd lunar-calendar
+docker compose up            # → http://localhost:5173, with hot reload
+```
+
+Editing files on your host updates the browser immediately — the source tree is
+bind-mounted, and `node_modules` lives in the container so your host stays clean.
+
+```bash
+docker compose --profile prod up      # → http://localhost:8080, nginx + production build
+docker compose --profile test run --rm test   # run the full suite in a clean environment
+```
+
+If those ports are taken, override them (or copy `.env.example` to `.env`):
+
+```bash
+DEV_PORT=5199 PROD_PORT=8099 docker compose up
+```
+
+The production image is a **50 MB** nginx-alpine serving only static files. Its
+config sets `Cache-Control: immutable` on hashed assets and, importantly,
+`no-store` on `sw.js` — otherwise a stale service worker pins visitors to an old
+build forever.
+
 ## Layout
 
 ```
 packages/sdk/   @lunar-calendar/sdk — engine and calendar rules, zero dependencies
 apps/web/       Vite + React PWA, consuming the SDK through a workspace link
+docker/         nginx config for the production image
 ```
+
+Or natively, with Node ≥ 20 and pnpm ≥ 9:
 
 ```bash
 pnpm install

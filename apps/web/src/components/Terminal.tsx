@@ -10,6 +10,8 @@ import {
   solarToLunar,
   type DayInfo,
 } from '@lunar-calendar/sdk';
+import { useT } from '../settings';
+import type { T } from '../i18n';
 
 /* ------------------------------------------------------------------ utils */
 
@@ -48,21 +50,22 @@ function kv(rows: Array<[string, ReactNode]>): ReactNode {
   );
 }
 
-function dayBlock(info: DayInfo): ReactNode {
+function dayBlock(info: DayInfo, T: T): ReactNode {
+  const leap = info.lunar.leap ? ` ${T.t('term.word.leapParen')}` : '';
   return kv([
-    ['dương lịch', <>{`${info.solar.day}/${info.solar.month}/${info.solar.year}`} {C.dim(`· ${info.solar.weekday}`)}</>],
-    ['âm lịch', C.lun(`${info.lunar.day}/${info.lunar.month}${info.lunar.leap ? ' (nhuận)' : ''}/${info.lunar.year}`)],
-    ['can chi', <>{info.canChi.day} {C.dim('· tháng')} {info.canChi.month} {C.dim('· năm')} {info.canChi.year} ({info.conGiap})</>],
-    ['tiết khí', C.warn(info.solarTerm.name + (info.solarTerm.isStart ? '  ← bắt đầu' : ''))],
-    ['trực', <>{info.quality.star} {info.quality.auspicious ? C.ok('[hoàng đạo]') : C.dim('[hắc đạo]')}</>],
-    ['giờ tốt', C.ok(info.luckyHours.filter((h) => h.auspicious).map((h) => h.chi).join(' '))],
-    ['ngày lễ', info.holidays.length ? C.err(info.holidays.map((h) => h.name).join(', ')) : C.dim('—')],
-    ['julian', C.dim(String(info.jd))],
+    [T.t('term.row.solar'), <>{`${info.solar.day}/${info.solar.month}/${info.solar.year}`} {C.dim(`· ${T.weekday(info.solar.weekdayIndex)}`)}</>],
+    [T.t('term.row.lunar'), C.lun(`${info.lunar.day}/${info.lunar.month}${leap}/${info.lunar.year}`)],
+    [T.t('term.row.canChi'), <>{info.canChi.day} {C.dim(`· ${T.t('term.word.month')}`)} {info.canChi.month} {C.dim(`· ${T.t('term.word.year')}`)} {info.canChi.year} ({T.zodiac(info.conGiapIndex, info.conGiap)})</>],
+    [T.t('term.row.solarTerm'), C.warn(T.solarTerm(info.solarTerm.index, info.solarTerm.name) + (info.solarTerm.isStart ? `  ${T.t('term.start')}` : ''))],
+    [T.t('term.row.truc'), <>{info.quality.star} {info.quality.auspicious ? C.ok(`[${T.t('quality.good')}]`) : C.dim(`[${T.t('quality.bad')}]`)}</>],
+    [T.t('term.row.hours'), C.ok(info.luckyHours.filter((h) => h.auspicious).map((h) => h.chi).join(' '))],
+    [T.t('term.row.holiday'), info.holidays.length ? C.err(info.holidays.map((h) => T.holiday(h.id, h.name)).join(', ')) : C.dim('—')],
+    [T.t('term.row.julian'), C.dim(String(info.jd))],
   ]);
 }
 
 /** Lich ASCII: moi tuan 2 dong — duong lich va am lich ngay duoi. */
-function asciiMonth(m: number, y: number, selJd: number): ReactNode {
+function asciiMonth(m: number, y: number, selJd: number, T: T): ReactNode {
   const cells = getMonthGrid(m, y);
   const weeks: DayInfo[][] = [];
   for (let i = 0; i < 42; i += 7) weeks.push(cells.slice(i, i + 7));
@@ -71,7 +74,7 @@ function asciiMonth(m: number, y: number, selJd: number): ReactNode {
   // Moi o = 4 ky tu ("%3s "), 7 o = 28, cong 1 space dau => be rong trong khung.
   const W = 29;
   const bar = (l: string, mid: string, r: string) => C.dim(l + mid.repeat(W) + r);
-  const title = ` Tháng ${m}/${y}`;
+  const title = ` ${T.monthName(m, y)}${T.lang === 'en' ? ' ' : '/'}${y}`;
   const canChi = canChiYear(solarToLunar(15, m, y).year);
 
   return (
@@ -87,9 +90,9 @@ function asciiMonth(m: number, y: number, selJd: number): ReactNode {
       <div>
         {C.dim('│ ')}
         {/* Dung chung o 4ch nhu cac hang ngay — dem dau cach bang tay la lech. */}
-        {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((w, i) => (
-          <span key={w} className={`t-day ${i === 6 ? 't-err' : 't-key'}`}>
-            {w}
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+          <span key={i} className={`t-day ${i === 6 ? 't-err' : 't-key'}`}>
+            {T.weekdayShort(i)}
           </span>
         ))}
         {C.dim('│')}
@@ -148,232 +151,266 @@ interface Ctx {
   exit: () => void;
 }
 
-const COMMANDS: Record<
-  string,
-  { usage: string; desc: string; run: (args: string[], ctx: Ctx) => ReactNode }
-> = {
-  help: {
-    usage: 'help',
-    desc: 'danh sách lệnh',
-    run: () => (
-      <>
-        {Object.entries(COMMANDS).map(([name, c]) => (
-          <div key={name}>
-            {C.val(c.usage.padEnd(26))} {C.dim(c.desc)}
-          </div>
-        ))}
-        <div>{C.dim('ngày nhập dạng dd/mm/yyyy · ↑ ↓ lịch sử lệnh · Tab gợi ý')}</div>
-      </>
-    ),
-  },
-  today: {
-    usage: 'today',
-    desc: 'thông tin hôm nay',
-    run: () => dayBlock(getDayInfo(TODAY.d, TODAY.m, TODAY.y)),
-  },
-  cal: {
-    usage: 'cal [mm] [yyyy]',
-    desc: 'lịch tháng dạng ASCII',
-    run: (args, ctx) => {
-      const m = args[0] ? Number(args[0]) : ctx.view.m;
-      const y = args[1] ? Number(args[1]) : ctx.view.y;
-      if (!(m >= 1 && m <= 12) || !Number.isFinite(y)) return C.err('tháng phải 1–12, năm là số');
-      ctx.setView(m, y);
-      return asciiMonth(m, y, ctx.selJd);
-    },
-  },
-  info: {
-    usage: 'info [dd/mm/yyyy]',
-    desc: 'chi tiết một ngày dương lịch',
-    run: (args) => {
-      const d = parseDate(args[0]);
-      if (!d) return C.err('ngày không hợp lệ — dùng dd/mm/yyyy');
-      return dayBlock(getDayInfo(d.d, d.m, d.y));
-    },
-  },
-  s2l: {
-    usage: 's2l <dd/mm/yyyy>',
-    desc: 'dương → âm',
-    run: (args) => {
-      const d = parseDate(args[0]);
-      if (!d) return C.err('ngày không hợp lệ');
-      const l = solarToLunar(d.d, d.m, d.y);
-      return (
+interface Command {
+  usage: string;
+  desc: string;
+  run: (args: string[], ctx: Ctx) => ReactNode;
+}
+
+/** Lenh duoc dung THEO NGON NGU — desc va moi dong output deu qua T. */
+function buildCommands(T: T): Record<string, Command> {
+  const t = T.t;
+  const leapParen = (leap: boolean) => (leap ? ` ${t('term.word.leapParen')}` : '');
+
+  const cmds: Record<string, Command> = {
+    help: {
+      usage: 'help',
+      desc: t('term.desc.help'),
+      run: () => (
         <>
-          {`${d.d}/${d.m}/${d.y}`} {C.dim('→')}{' '}
-          {C.lun(`${l.day}/${l.month}${l.leap ? ' (nhuận)' : ''}/${l.year} âm lịch`)}
-        </>
-      );
-    },
-  },
-  l2s: {
-    usage: 'l2s <dd/mm/yyyy> [-l]',
-    desc: 'âm → dương (-l = tháng nhuận)',
-    run: (args) => {
-      const d = parseDate(args[0]);
-      if (!d) return C.err('ngày không hợp lệ');
-      const leap = args.includes('-l') || args.includes('--leap');
-      const s = lunarToSolar(d.d, d.m, d.y, leap);
-      if (!s) return C.err(`năm ${d.y} âm lịch không có tháng ${d.m} nhuận`);
-      return (
-        <>
-          {C.lun(`${d.d}/${d.m}${leap ? 'N' : ''}/${d.y} âm`)} {C.dim('→')}{' '}
-          {C.val(`${s.day}/${s.month}/${s.year} dương lịch`)}
-        </>
-      );
-    },
-  },
-  amlich: {
-    usage: 'amlich <dd/mm[/yyyy]> [-l]',
-    desc: 'ngày ÂM → ngày dương + còn bao nhiêu ngày',
-    run: (args) => {
-      if (!args[0]) {
-        const l = solarToLunar(TODAY.d, TODAY.m, TODAY.y);
-        return (
-          <>
-            hôm nay là {C.lun(`${l.day}/${l.month}${l.leap ? ' (nhuận)' : ''}/${l.year} âm lịch`)}{' '}
-            {C.dim("— gõ 'amlich 20/10' để tra một ngày âm cụ thể")}
-          </>
-        );
-      }
-
-      const parts = args[0].split(/[/\-.]/).map(Number);
-      if (parts.length < 2 || parts.some((n) => !Number.isFinite(n))) {
-        return C.err('cú pháp: amlich dd/mm hoặc amlich dd/mm/yyyy');
-      }
-      const [d, m] = parts as [number, number];
-      const explicitYear = parts[2];
-      const leap = args.includes('-l') || args.includes('--leap');
-      if (m < 1 || m > 12 || d < 1 || d > 30) return C.err('ngày 1–30, tháng 1–12');
-
-      const todayJd = integerJd(TODAY.d, TODAY.m, TODAY.y);
-      const lunarNow = solarToLunar(TODAY.d, TODAY.m, TODAY.y);
-
-      // Khong ghi nam -> tim LAN TOI sap den (nam am lich hien tai, chua qua thi sang nam)
-      let year = explicitYear ?? lunarNow.year;
-      let solar = lunarToSolar(d, m, year, leap);
-      if (explicitYear === undefined && solar) {
-        if (integerJd(solar.day, solar.month, solar.year) < todayJd) {
-          year += 1;
-          solar = lunarToSolar(d, m, year, leap);
-        }
-      }
-
-      if (!solar) {
-        return leap
-          ? C.err(`năm ${year} âm lịch không có tháng ${m} nhuận`)
-          : C.err('không chuyển đổi được ngày này');
-      }
-
-      // Thang am lich chi co 29 hoac 30 ngay — bat loi thay vi tra ve ngay troi
-      const len = lunarMonthLength(m, year, leap);
-      if (d > len) {
-        return (
-          <>
-            {C.err(`tháng ${m} âm lịch năm ${year} chỉ có ${len} ngày`)}{' '}
-            {C.dim(`(không có ngày ${d})`)}
-          </>
-        );
-      }
-
-      const jd = integerJd(solar.day, solar.month, solar.year);
-      const diff = jd - todayJd;
-      const info = getDayInfo(solar.day, solar.month, solar.year);
-      const holiday = info.holidays[0];
-
-      return (
-        <>
-          <div>
-            {C.lun(`${d}/${m}${leap ? ' nhuận' : ''}/${year} âm`)} {C.dim('→')}{' '}
-            {C.val(`${solar.day}/${solar.month}/${solar.year} dương lịch`)}{' '}
-            {C.dim(`(${info.solar.weekday})`)}
-          </div>
-          <div>
-            {diff === 0
-              ? C.ok('chính là HÔM NAY')
-              : diff > 0
-                ? <>{C.ok(`còn ${diff} ngày nữa`)} {C.dim(`· ${(diff / 7).toFixed(1)} tuần · khoảng ${(diff / 30.44).toFixed(1)} tháng`)}</>
-                : C.dim(`đã qua ${-diff} ngày`)}
-          </div>
-          <div>
-            {C.dim('năm')} {info.canChi.year} ({info.conGiap}) {C.dim('·')} {info.canChi.day}{' '}
-            {info.quality.auspicious ? C.ok('[hoàng đạo]') : C.dim('[hắc đạo]')}
-            {holiday ? <> {C.dim('·')} {C.err(holiday.name)}</> : null}
-          </div>
-        </>
-      );
-    },
-  },
-  tet: {
-    usage: 'tet [yyyy]',
-    desc: 'ngày Tết Nguyên Đán',
-    run: (args) => {
-      const y = args[0] ? Number(args[0]) : TODAY.y;
-      if (!Number.isFinite(y)) return C.err('năm không hợp lệ');
-      const s = lunarToSolar(1, 1, y);
-      if (!s) return C.err('không tính được');
-      const info = getDayInfo(s.day, s.month, s.year);
-      const days = Math.round((integerJd(s.day, s.month, s.year) - integerJd(TODAY.d, TODAY.m, TODAY.y)));
-      return (
-        <>
-          <div>
-            {C.val(`Tết ${canChiYear(y)}`)} {C.dim('·')} mùng 1 nhằm{' '}
-            {C.ok(`${s.day}/${s.month}/${s.year}`)} {C.dim(`(${info.solar.weekday})`)}
-          </div>
-          <div>
-            {C.dim(days === 0 ? 'là hôm nay' : days > 0 ? `còn ${days} ngày nữa` : `đã qua ${-days} ngày`)}
-          </div>
-        </>
-      );
-    },
-  },
-  leap: {
-    usage: 'leap [yyyy]',
-    desc: 'năm âm lịch nhuận tháng mấy',
-    run: (args) => {
-      const y = args[0] ? Number(args[0]) : TODAY.y;
-      const lm = leapMonthOf(y);
-      if (lm === null) return <>{`năm ${y} âm lịch`} {C.dim('không nhuận')} {C.dim('(12 tháng)')}</>;
-      return (
-        <>
-          {`năm ${y} âm lịch nhuận `}
-          {C.warn(`tháng ${lm}`)} {C.dim(`(${lunarMonthLength(lm, y, true)} ngày)`)}
-        </>
-      );
-    },
-  },
-  hours: {
-    usage: 'hours [dd/mm/yyyy]',
-    desc: 'giờ hoàng đạo trong ngày',
-    run: (args) => {
-      const d = parseDate(args[0]);
-      if (!d) return C.err('ngày không hợp lệ');
-      const info = getDayInfo(d.d, d.m, d.y);
-      return (
-        <>
-          {info.luckyHours.map((h) => (
-            <div key={h.chi}>
-              {h.auspicious ? C.ok('●') : C.dim('○')} {(h.chi + '   ').slice(0, 4)}{' '}
-              <span className={h.auspicious ? 't-ok' : 't-dim'}>{h.range}</span>{' '}
-              {h.auspicious ? C.dim('hoàng đạo') : C.dim('hắc đạo')}
+          {Object.values(cmds).map((c) => (
+            <div key={c.usage}>
+              {C.val(c.usage.padEnd(26))} {C.dim(c.desc)}
             </div>
           ))}
+          <div>{C.dim(t('term.help.hint'))}</div>
         </>
-      );
+      ),
     },
-  },
-  json: {
-    usage: 'json [dd/mm/yyyy]',
-    desc: 'dữ liệu thô dạng JSON',
-    run: (args) => {
-      const d = parseDate(args[0]);
-      if (!d) return C.err('ngày không hợp lệ');
-      return <span className="t-dim">{JSON.stringify(getDayInfo(d.d, d.m, d.y), null, 2)}</span>;
+    today: {
+      usage: 'today',
+      desc: t('term.desc.today'),
+      run: () => dayBlock(getDayInfo(TODAY.d, TODAY.m, TODAY.y), T),
     },
-  },
-  clear: { usage: 'clear', desc: 'xoá màn hình', run: (_a, ctx) => (ctx.clear(), null) },
-  gui: { usage: 'gui', desc: 'quay lại giao diện lịch', run: (_a, ctx) => (ctx.exit(), null) },
-};
+    cal: {
+      usage: 'cal [mm] [yyyy]',
+      desc: t('term.desc.cal'),
+      run: (args, ctx) => {
+        const m = args[0] ? Number(args[0]) : ctx.view.m;
+        const y = args[1] ? Number(args[1]) : ctx.view.y;
+        if (!(m >= 1 && m <= 12) || !Number.isFinite(y)) return C.err(t('term.err.month'));
+        ctx.setView(m, y);
+        return asciiMonth(m, y, ctx.selJd, T);
+      },
+    },
+    info: {
+      usage: 'info [dd/mm/yyyy]',
+      desc: t('term.desc.info'),
+      run: (args) => {
+        const d = parseDate(args[0]);
+        if (!d) return C.err(t('term.err.date'));
+        return dayBlock(getDayInfo(d.d, d.m, d.y), T);
+      },
+    },
+    s2l: {
+      usage: 's2l <dd/mm/yyyy>',
+      desc: t('term.desc.s2l'),
+      run: (args) => {
+        const d = parseDate(args[0]);
+        if (!d) return C.err(t('term.err.dateShort'));
+        const l = solarToLunar(d.d, d.m, d.y);
+        return (
+          <>
+            {`${d.d}/${d.m}/${d.y}`} {C.dim('→')}{' '}
+            {C.lun(`${l.day}/${l.month}${leapParen(l.leap)}/${l.year} ${t('term.word.lunar')}`)}
+          </>
+        );
+      },
+    },
+    l2s: {
+      usage: 'l2s <dd/mm/yyyy> [-l]',
+      desc: t('term.desc.l2s'),
+      run: (args) => {
+        const d = parseDate(args[0]);
+        if (!d) return C.err(t('term.err.dateShort'));
+        const leap = args.includes('-l') || args.includes('--leap');
+        const s = lunarToSolar(d.d, d.m, d.y, leap);
+        if (!s) return C.err(t('term.err.noLeap', { y: d.y, m: d.m }));
+        return (
+          <>
+            {C.lun(`${d.d}/${d.m}${leap ? 'N' : ''}/${d.y} ${t('term.word.lunarShort')}`)} {C.dim('→')}{' '}
+            {C.val(`${s.day}/${s.month}/${s.year} ${t('term.word.solar')}`)}
+          </>
+        );
+      },
+    },
+    amlich: {
+      usage: 'amlich <dd/mm[/yyyy]> [-l]',
+      desc: t('term.desc.amlich'),
+      run: (args) => {
+        if (!args[0]) {
+          const l = solarToLunar(TODAY.d, TODAY.m, TODAY.y);
+          return (
+            <>
+              {t('term.amlich.todayIs')}{' '}
+              {C.lun(`${l.day}/${l.month}${leapParen(l.leap)}/${l.year} ${t('term.word.lunar')}`)}{' '}
+              {C.dim(t('term.amlich.hint'))}
+            </>
+          );
+        }
+
+        const parts = args[0].split(/[/\-.]/).map(Number);
+        if (parts.length < 2 || parts.some((n) => !Number.isFinite(n))) {
+          return C.err(t('term.err.syntax'));
+        }
+        const [d, m] = parts as [number, number];
+        const explicitYear = parts[2];
+        const leap = args.includes('-l') || args.includes('--leap');
+        if (m < 1 || m > 12 || d < 1 || d > 30) return C.err(t('term.err.range'));
+
+        const todayJd = integerJd(TODAY.d, TODAY.m, TODAY.y);
+        const lunarNow = solarToLunar(TODAY.d, TODAY.m, TODAY.y);
+
+        // Khong ghi nam -> tim LAN TOI sap den (nam am lich hien tai, chua qua thi sang nam)
+        let year = explicitYear ?? lunarNow.year;
+        let solar = lunarToSolar(d, m, year, leap);
+        if (explicitYear === undefined && solar) {
+          if (integerJd(solar.day, solar.month, solar.year) < todayJd) {
+            year += 1;
+            solar = lunarToSolar(d, m, year, leap);
+          }
+        }
+
+        if (!solar) {
+          return leap ? C.err(t('term.err.noLeap', { y: year, m })) : C.err(t('term.err.convert'));
+        }
+
+        // Thang am lich chi co 29 hoac 30 ngay — bat loi thay vi tra ve ngay troi
+        const len = lunarMonthLength(m, year, leap);
+        if (d > len) {
+          return (
+            <>
+              {C.err(t('term.amlich.short', { m, y: year, n: len }))}{' '}
+              {C.dim(t('term.amlich.noSuchDay', { d }))}
+            </>
+          );
+        }
+
+        const jd = integerJd(solar.day, solar.month, solar.year);
+        const diff = jd - todayJd;
+        const info = getDayInfo(solar.day, solar.month, solar.year);
+        const holiday = info.holidays[0];
+
+        return (
+          <>
+            <div>
+              {C.lun(`${d}/${m}${leap ? ` ${t('term.word.leap')}` : ''}/${year} ${t('term.word.lunarShort')}`)}{' '}
+              {C.dim('→')} {C.val(`${solar.day}/${solar.month}/${solar.year} ${t('term.word.solar')}`)}{' '}
+              {C.dim(`(${T.weekday(info.solar.weekdayIndex)})`)}
+            </div>
+            <div>
+              {diff === 0 ? (
+                C.ok(t('term.isToday'))
+              ) : diff > 0 ? (
+                <>
+                  {C.ok(t('term.inDays', { n: diff }))}{' '}
+                  {C.dim(
+                    '· ' +
+                      t('term.weeksMonths', {
+                        w: (diff / 7).toFixed(1),
+                        mo: (diff / 30.44).toFixed(1),
+                      }),
+                  )}
+                </>
+              ) : (
+                C.dim(t('term.agoDays', { n: -diff }))
+              )}
+            </div>
+            <div>
+              {C.dim(t('term.word.year'))} {info.canChi.year} ({T.zodiac(info.conGiapIndex, info.conGiap)}){' '}
+              {C.dim('·')} {info.canChi.day}{' '}
+              {info.quality.auspicious ? C.ok(`[${t('quality.good')}]`) : C.dim(`[${t('quality.bad')}]`)}
+              {holiday ? <> {C.dim('·')} {C.err(T.holiday(holiday.id, holiday.name))}</> : null}
+            </div>
+          </>
+        );
+      },
+    },
+    tet: {
+      usage: 'tet [yyyy]',
+      desc: t('term.desc.tet'),
+      run: (args) => {
+        const y = args[0] ? Number(args[0]) : TODAY.y;
+        if (!Number.isFinite(y)) return C.err(t('term.err.year'));
+        const s = lunarToSolar(1, 1, y);
+        if (!s) return C.err(t('term.err.compute'));
+        const info = getDayInfo(s.day, s.month, s.year);
+        const days = integerJd(s.day, s.month, s.year) - integerJd(TODAY.d, TODAY.m, TODAY.y);
+        return (
+          <>
+            <div>
+              {C.val(t('term.tet.title', { cc: canChiYear(y) }))} {C.dim('·')} {t('term.tet.falls')}{' '}
+              {C.ok(`${s.day}/${s.month}/${s.year}`)} {C.dim(`(${T.weekday(info.solar.weekdayIndex)})`)}
+            </div>
+            <div>
+              {C.dim(
+                days === 0
+                  ? t('term.tet.isToday')
+                  : days > 0
+                    ? t('term.inDays', { n: days })
+                    : t('term.agoDays', { n: -days }),
+              )}
+            </div>
+          </>
+        );
+      },
+    },
+    leap: {
+      usage: 'leap [yyyy]',
+      desc: t('term.desc.leap'),
+      run: (args) => {
+        const y = args[0] ? Number(args[0]) : TODAY.y;
+        const lm = leapMonthOf(y);
+        if (lm === null)
+          return (
+            <>
+              {t('term.leap.none', { y })} {C.dim(t('term.leap.noneTail'))} {C.dim(t('term.leap.months12'))}
+            </>
+          );
+        return (
+          <>
+            {t('term.leap.has', { y })}
+            {C.warn(t('term.leap.month', { m: lm }))}{' '}
+            {C.dim(t('term.leap.days', { n: lunarMonthLength(lm, y, true) }))}
+          </>
+        );
+      },
+    },
+    hours: {
+      usage: 'hours [dd/mm/yyyy]',
+      desc: t('term.desc.hours'),
+      run: (args) => {
+        const d = parseDate(args[0]);
+        if (!d) return C.err(t('term.err.dateShort'));
+        const info = getDayInfo(d.d, d.m, d.y);
+        return (
+          <>
+            {info.luckyHours.map((h) => (
+              <div key={h.chi}>
+                {h.auspicious ? C.ok('●') : C.dim('○')} {(h.chi + '   ').slice(0, 4)}{' '}
+                <span className={h.auspicious ? 't-ok' : 't-dim'}>{h.range}</span>{' '}
+                {C.dim(h.auspicious ? t('quality.good') : t('quality.bad'))}
+              </div>
+            ))}
+          </>
+        );
+      },
+    },
+    json: {
+      usage: 'json [dd/mm/yyyy]',
+      desc: t('term.desc.json'),
+      run: (args) => {
+        const d = parseDate(args[0]);
+        if (!d) return C.err(t('term.err.dateShort'));
+        return <span className="t-dim">{JSON.stringify(getDayInfo(d.d, d.m, d.y), null, 2)}</span>;
+      },
+    },
+    clear: { usage: 'clear', desc: t('term.desc.clear'), run: (_a, ctx) => (ctx.clear(), null) },
+    gui: { usage: 'gui', desc: t('term.desc.gui'), run: (_a, ctx) => (ctx.exit(), null) },
+  };
+
+  return cmds;
+}
 
 
 /* ---------------------------------------------------------------- resize */
@@ -533,6 +570,8 @@ export function Terminal({
   const termRef = useRef<HTMLElement>(null);
   const { size, startDrag, reset } = useResizable(termRef);
   const grid = useGridSize(bodyRef);
+  const T = useT();
+  const commands = useMemo(() => buildCommands(T), [T]);
 
   const ctx: Ctx = useMemo(
     () => ({
@@ -545,24 +584,24 @@ export function Terminal({
     [view, setView, selJd, onExit],
   );
 
-  // Banner chao — chay mot lan
+  // Banner chao — ve lai khi doi ngon ngu, nhung khong xoa lich su lenh
   useEffect(() => {
     const info = getDayInfo(TODAY.d, TODAY.m, TODAY.y);
-    setEntries([
-      {
-        out: (
-          <>
-            <div className="t-banner">âm lịch — @lunar-calendar/sdk, GMT+7 (105°Đ)</div>
-            <div>
-              {C.dim('hôm nay')} {`${TODAY.d}/${TODAY.m}/${TODAY.y}`} {C.dim('·')}{' '}
-              {C.lun(`${info.lunar.day}/${info.lunar.month} âm`)} {C.dim('·')} {info.canChi.year}
-            </div>
-            <div>{C.dim("gõ 'help' để xem lệnh, 'gui' để quay lại giao diện lịch")}</div>
-          </>
-        ),
-      },
-    ]);
-  }, []);
+    const banner: Entry = {
+      out: (
+        <>
+          <div className="t-banner">{T.t('term.banner')}</div>
+          <div>
+            {C.dim(T.t('term.banner.today'))} {`${TODAY.d}/${TODAY.m}/${TODAY.y}`} {C.dim('·')}{' '}
+            {C.lun(`${info.lunar.day}/${info.lunar.month} ${T.t('term.word.lunarShort')}`)} {C.dim('·')}{' '}
+            {info.canChi.year}
+          </div>
+          <div>{C.dim(T.t('term.banner.hint'))}</div>
+        </>
+      ),
+    };
+    setEntries((e) => [banner, ...e.slice(1)]);
+  }, [T]);
 
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight });
@@ -579,12 +618,12 @@ export function Terminal({
     setHistIdx(-1);
 
     const [name, ...args] = raw.split(/\s+/);
-    const cmd = COMMANDS[name!.toLowerCase()];
+    const cmd = commands[name!.toLowerCase()];
     const out = cmd ? (
       cmd.run(args, ctx)
     ) : (
       <>
-        {C.err(`lệnh không tồn tại: ${name}`)} {C.dim("— gõ 'help'")}
+        {C.err(T.t('term.err.unknown', { cmd: name! }))} {C.dim(T.t('term.err.unknownHint'))}
       </>
     );
     // clear/gui tu xu ly, khong day them dong
@@ -616,7 +655,7 @@ export function Terminal({
       }
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      const match = Object.keys(COMMANDS).filter((c) => c.startsWith(input.trim()));
+      const match = Object.keys(commands).filter((c) => c.startsWith(input.trim()));
       if (match.length === 1) setInput(match[0]! + ' ');
       else if (match.length > 1) setEntries((en) => [...en, { cmd: input, out: C.dim(match.join('  ')) }]);
     } else if (e.key === 'l' && e.ctrlKey) {
@@ -646,8 +685,8 @@ export function Terminal({
           amlich — zsh — {grid.cols}×{grid.rows}
         </span>
         {(size.w !== null || size.h !== null) && (
-          <button className="copy-btn" onClick={reset} title="Về kích thước mặc định">
-            reset
+          <button className="copy-btn" onClick={reset} title={T.t('term.title.reset')}>
+            {T.t('action.reset')}
           </button>
         )}
         <button className="copy-btn" onClick={onExit}>
@@ -679,7 +718,7 @@ export function Terminal({
             spellCheck={false}
             autoComplete="off"
             autoFocus
-            aria-label="Nhập lệnh"
+            aria-label={T.t('term.a11y.input')}
           />
         </div>
       </div>

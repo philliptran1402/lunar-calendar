@@ -6,7 +6,7 @@ export const CHI = [
   'Ngọ', 'Mùi', 'Thân', 'Dậu', 'Tuất', 'Hợi',
 ] as const;
 
-/** Con giap tuong ung 12 chi — dung cho UI "nam con gi". */
+/** The zodiac animal of each of the 12 branches — for "year of the ..." in the UI. */
 export const CON_GIAP = [
   'Chuột', 'Trâu', 'Hổ', 'Mèo', 'Rồng', 'Rắn',
   'Ngựa', 'Dê', 'Khỉ', 'Gà', 'Chó', 'Lợn',
@@ -19,10 +19,10 @@ export const canChiYear = (lunarYear: number): string =>
 
 export const conGiapYear = (lunarYear: number): string => pick(CON_GIAP, lunarYear + 8);
 
-/** Chi so con giap 0..11 (0 = Ty/Chuot) — de UI dich ten con vat. */
+/** Zodiac index 0..11 (0 = Tý / Rat), so the UI can translate the animal name. */
 export const conGiapIndex = (lunarYear: number): number => ((lunarYear + 8) % 12 + 12) % 12;
 
-/** Chi so thu trong tuan 0..6 (0 = Chu Nhat). */
+/** Day of the week as 0..6 (0 = Sunday). */
 export const weekdayIndexOf = (dd: number, mm: number, yy: number): number =>
   Math.floor(julianDay(yy, mm, dd) + 1.5) % 7;
 
@@ -31,31 +31,32 @@ export const canChiMonth = (lunarMonth: number, lunarYear: number): string =>
 
 export const canChiDay = (jd: number): string => `${pick(CAN, jd + 9)} ${pick(CHI, jd + 1)}`;
 
-/** Chi cua ngay (0..11) — nen tang de tinh gio hoang dao va truc than. */
+/** The branch of the day (0..11) — the basis for lucky hours and the day star. */
 export const chiIndexOfDay = (jd: number): number => (jd + 1) % 12;
 
 /**
- * 12 gio am lich (moi gio = 2 tieng). Bang gio hoang dao co dien,
- * tra theo chi cua ngay: '1' = hoang dao, '0' = hac dao.
+ * The 12 traditional hours (each two clock hours). This is the classical
+ * lucky-hour table, looked up by the branch of the day:
+ * '1' = auspicious, '0' = inauspicious.
  */
 const GIO_HOANG_DAO = [
-  '110100101100', // Ty, Ngo
-  '001101001011', // Suu, Mui
-  '110011010010', // Dan, Than
-  '101100110100', // Mao, Dau
-  '001011001101', // Thin, Tuat
-  '010010110011', // Ty(ran), Hoi
+  '110100101100', // Tý, Ngọ
+  '001101001011', // Sửu, Mùi
+  '110011010010', // Dần, Thân
+  '101100110100', // Mão, Dậu
+  '001011001101', // Thìn, Tuất
+  '010010110011', // Tỵ, Hợi
 ] as const;
 
 export interface LuckyHour {
-  /** Ten chi cua gio, vd "Tý" */
+  /** Name of the hour's branch, e.g. "Tý" */
   chi: string;
-  /** Khung gio duong lich, vd "23:00 – 00:59" */
+  /** The clock range it covers, e.g. "23:00 – 00:59" */
   range: string;
   auspicious: boolean;
 }
 
-/** Gio hoang dao trong ngay (dua tren chi cua ngay). */
+/** The lucky hours of a day, derived from the day's branch. */
 export function luckyHours(jd: number): LuckyHour[] {
   const row = GIO_HOANG_DAO[chiIndexOfDay(jd) % 6]!;
   return CHI.map((chi, i) => {
@@ -69,13 +70,13 @@ export function luckyHours(jd: number): LuckyHour[] {
   });
 }
 
-/** Can chi cua gio dau tien (gio Ty) trong ngay. */
+/** The stem-branch of the day's first hour (the hour of Tý). */
 export const canChiHour = (jd: number): string => `${pick(CAN, (jd - 1) * 2)} Tý`;
 
 /**
- * 12 truc than theo thang am lich — co so cua "ngay hoang dao / hac dao".
- * Luu y: day la TRI THUC VAN HOA truyen thong, trinh bay de tham khao,
- * khong phai loi khuyen hay phan menh.
+ * The 12 day stars, cycling by lunar month — the basis of "auspicious /
+ * inauspicious day". Note: this is TRADITIONAL CULTURAL KNOWLEDGE, offered
+ * for reference. It is not advice and not a prediction.
  */
 const TRUC_THAN = [
   'Thanh Long', 'Minh Đường', 'Thiên Hình', 'Chu Tước', 'Kim Quỹ', 'Bảo Quang',
@@ -83,15 +84,15 @@ const TRUC_THAN = [
 ] as const;
 export const TRUC_THAN_LIST = TRUC_THAN;
 const GOOD_OFFSETS = new Set([0, 1, 4, 5, 7, 10]);
-/** Thanh Long dong o chi nao, theo nhom thang 1&7, 2&8, ... */
+/** Which branch Thanh Long occupies, by month pair 1&7, 2&8, ... */
 const START_CHI_BY_MONTH = [0, 2, 4, 6, 8, 10];
 
 export interface DayQuality {
-  /** Chi so truc than 0..11 — de UI dich */
+  /** Day-star index 0..11, so the UI can translate it */
   starIndex: number;
-  /** Ten truc than truc nhat */
+  /** Name of the day star on duty */
   star: string;
-  /** true = hoang dao, false = hac dao */
+  /** true = auspicious, false = inauspicious */
   auspicious: boolean;
 }
 
@@ -101,7 +102,7 @@ export function dayQuality(jd: number, lunarMonth: number): DayQuality {
   return { starIndex: offset, star: TRUC_THAN[offset]!, auspicious: GOOD_OFFSETS.has(offset) };
 }
 
-/** Thu trong tuan (0 = Chu Nhat). */
+/** Weekday names in Vietnamese (0 = Sunday). */
 export const WEEKDAY_VI = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'] as const;
 
 export function weekdayOf(dd: number, mm: number, yy: number): string {

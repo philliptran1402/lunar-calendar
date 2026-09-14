@@ -19,8 +19,9 @@ import { lunarMonthLength, solarToLunar, VN_TIMEZONE } from './index.js';
 import { isSolarTermStart, solarTermIndexOf, solarTermOf, type SolarTerm } from './solar-term.js';
 
 /**
- * Julian Day dang SO NGUYEN (moc giua trua) — quy uoc ma cac bang can chi
- * co dien su dung. Khac voi `julianDay()` (tra ve moc nua dem, X.5).
+ * Julian Day as an INTEGER (noon epoch) — the convention the classical
+ * sexagenary tables use. Distinct from `julianDay()`, which returns the
+ * midnight epoch (X.5).
  */
 export const integerJd = (day: number, month: number, year: number): number =>
   Math.floor(julianDay(year, month, day) + 0.5);
@@ -33,7 +34,7 @@ export interface DayInfo {
     year: number;
     leap: boolean;
     monthLength: number;
-    /** true = thoi diem soc qua sat nua dem, ngay am co the lech 1 ngay */
+    /** true when the conjunction is so close to midnight the date may be off by one */
     uncertain: boolean;
   };
   canChi: { year: string; month: string; day: string; hour: string };
@@ -43,11 +44,11 @@ export interface DayInfo {
   quality: DayQuality;
   luckyHours: LuckyHour[];
   holidays: Holiday[];
-  /** Julian Day dang so nguyen */
+  /** Julian Day, integer form */
   jd: number;
 }
 
-/** Toan bo thong tin lich cua mot ngay duong lich. */
+/** Everything the calendar knows about one solar date. */
 export function getDayInfo(
   day: number,
   month: number,
@@ -88,7 +89,8 @@ export function getDayInfo(
 }
 
 /**
- * Luoi lich thang: luon 6 hang x 7 cot (42 o), tuan bat dau THU HAI (chuan VN).
+ * A month grid: always 6 rows × 7 columns (42 cells), weeks starting MONDAY
+ * as is conventional in Vietnam.
  */
 export function getMonthGrid(
   month: number,
@@ -96,8 +98,8 @@ export function getMonthGrid(
   tz: TimeZoneResolver = VN_TIMEZONE,
 ): DayInfo[] {
   const firstJd = integerJd(1, month, year);
-  const weekdayOfFirst = (firstJd + 1) % 7; // 0 = Chu Nhat
-  const leading = (weekdayOfFirst + 6) % 7; // doi sang tuan bat dau Thu Hai
+  const weekdayOfFirst = (firstJd + 1) % 7; // 0 = Sunday
+  const leading = (weekdayOfFirst + 6) % 7; // shift to a Monday-first week
   const startJd = firstJd - leading;
 
   const cells: DayInfo[] = [];
@@ -108,7 +110,7 @@ export function getMonthGrid(
   return cells;
 }
 
-/** Nghich dao cua `integerJd`: Julian Day so nguyen -> ngay duong lich. */
+/** Inverse of `integerJd`: an integer Julian Day → calendar date. */
 export function civilFromJd(jd: number): { year: number; month: number; day: number } {
   let a = jd + 32044;
   const b = Math.floor((4 * a + 3) / 146097);

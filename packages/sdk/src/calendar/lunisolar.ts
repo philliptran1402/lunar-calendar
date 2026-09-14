@@ -11,18 +11,22 @@ import {
 } from '../time/julian.js';
 
 /**
- * Quy tac lich am-duong, viet THANG theo dinh nghia phap ly (QD 121/CP 1967):
- *  1. Thang bat dau vao NGAY (gio dia phuong) chua thoi diem Soc (trang moi).
- *  2. Thang 11 la thang chua Dong chi (kinh do Mat Troi = 270 do).
- *  3. Nam nhuan = chu ky tu thang 11 den thang 11 co 13 thang; thang nhuan la
- *     thang DAU TIEN khong chua trung khi (kinh do Mat Troi chia het cho 30).
- *  4. Tinh theo kinh tuyen 105 do Dong = UTC+7 (Viet Nam).
+ * The lunisolar rules, written out exactly as the law defines them
+ * (Decree 121/CP, 1967):
  *
- * Khac ban pho bien: khong dung meo "cung 30 do luc nua dem" ma tinh THOI DIEM
- * that cua trung khi — ro rang, kiem chung duoc, va dung o ca cac ca sat bien.
+ *  1. A month begins on the DAY (in local time) containing the conjunction.
+ *  2. Month 11 is the month containing the winter solstice (solar longitude 270°).
+ *  3. A leap year is a solstice-to-solstice cycle holding 13 months; the leap
+ *     month is the FIRST one containing no principal term (a solar longitude
+ *     that is a multiple of 30°).
+ *  4. Computed on the 105°E meridian = UTC+7 for Vietnam.
+ *
+ * Unlike the common port, this does not rely on the "30° sector at midnight"
+ * shortcut — it locates the actual instant of each principal term, which is
+ * clearer, verifiable, and correct in the borderline cases.
  */
 
-/** Mui gio co the thay doi theo thoi gian (lich su Viet Nam tung la UTC+8). */
+/** The timezone may vary with time — Vietnam was on UTC+8 before 1968. */
 export type TimeZoneResolver = number | ((jdUT: JdUT) => number);
 
 const tzAt = (tz: TimeZoneResolver, jd: JdUT): number =>
@@ -37,10 +41,11 @@ const cacheKey = (a: number, tz: TimeZoneResolver): string =>
   `${a}|${typeof tz === 'number' ? tz : 'fn'}`;
 
 /**
- * Do BAT DINH cua thoi diem tinh duoc (giay), gom:
- *  - sai so cua chuoi Meeus ch.49 (~17s toi da)
- *  - bat dinh cua DeltaT: trong ky do duoc thi nho, cang xa cang lon
- *    (DeltaT tuong lai phu thuoc toc do quay cua Trai Dat — KHONG the biet truoc).
+ * How UNCERTAIN a computed instant is, in seconds. Two contributions:
+ *  - the error of the Meeus ch. 49 series (~17 s at worst)
+ *  - the uncertainty in ΔT: small inside the measured era, growing with
+ *    distance from it. Future ΔT depends on the Earth's rotation and is
+ *    genuinely UNKNOWABLE.
  */
 export function uncertaintySeconds(jdUT: number): number {
   const year = 2000 + (jdUT - 2451545) / 365.25;
@@ -53,20 +58,20 @@ export function uncertaintySeconds(jdUT: number): number {
 
 export interface NewMoonInfo {
   k: number;
-  /** So ngay lich dia phuong chua thoi diem soc */
+  /** The local day number containing the conjunction */
   dayNumber: number;
-  /** Khoang cach tu thoi diem soc den nua dem dia phuong gan nhat (giay) */
+  /** Distance from the conjunction to the nearest local midnight, in seconds */
   marginSeconds: number;
-  /** true = qua sat nua dem, ngay bat dau thang KHONG chac chan */
+  /** true when the conjunction is so near midnight the month's start is uncertain */
   uncertain: boolean;
 }
 
-/** Thong tin day du ve mot ky trang moi, ke ca do chac chan cua ngay. */
+/** Full detail about one lunation, including how certain its date is. */
 export function newMoonInfo(k: number, tz: TimeZoneResolver): NewMoonInfo {
   const jdUt = ttToUt(newMoonTT(k));
   const offset = tzAt(tz, jdUt);
   const local = jdUt + offset / 24 + 0.5;
-  const frac = local - Math.floor(local); // 0 = dung nua dem
+  const frac = local - Math.floor(local); // 0 = exactly midnight
   const marginSeconds = Math.min(frac, 1 - frac) * 86400;
   return {
     k,
@@ -76,7 +81,7 @@ export function newMoonInfo(k: number, tz: TimeZoneResolver): NewMoonInfo {
   };
 }
 
-/** So ngay lich (dia phuong) chua thoi diem trang moi thu k. */
+/** The local day number containing the k-th new moon. */
 export function newMoonDayNumber(k: number, tz: TimeZoneResolver): number {
   const key = cacheKey(k, tz);
   const hit = newMoonDayCache.get(key);
@@ -87,7 +92,7 @@ export function newMoonDayNumber(k: number, tz: TimeZoneResolver): number {
   return day;
 }
 
-/** So ngay lich chua Dong chi cua nam duong `year`. */
+/** The local day number containing the winter solstice of solar year `year`. */
 export function winterSolsticeDayNumber(year: number, tz: TimeZoneResolver): number {
   const key = cacheKey(year, tz);
   const hit = winterSolsticeCache.get(key);
@@ -99,25 +104,25 @@ export function winterSolsticeDayNumber(year: number, tz: TimeZoneResolver): num
   return day;
 }
 
-/** Ngay bat dau thang 11 am lich (thang chua Dong chi) cua nam duong `year`. */
+/** Start of lunar month 11 — the month containing the solstice of `year`. */
 export function month11StartDay(year: number, tz: TimeZoneResolver): number {
   const ws = winterSolsticeDayNumber(year, tz);
   let k = newMoonIndexNear(ws - 0.5);
-  // Lui/tien cho den khi trang moi thu k la trang moi CUOI CUNG <= ngay Dong chi
+  // Walk k until it is the LAST new moon on or before the solstice day
   while (newMoonDayNumber(k, tz) > ws) k--;
   while (newMoonDayNumber(k + 1, tz) <= ws) k++;
   return newMoonDayNumber(k, tz);
 }
 
 /**
- * Thang duong lich co chua "trung khi" khong (kinh do Mat Troi chia het cho 30).
- * Kiem tra bang cach so cung 30 do tai dau va cuoi thang am: neu khac cung
- * thi trong thang co it nhat mot trung khi.
+ * Does this lunar month contain a principal term (a solar longitude that is a
+ * multiple of 30°)? Compare the 30° sector at the month's first and last day:
+ * if they differ, at least one principal term falls inside.
  */
 function hasPrincipalTerm(startDay: number, nextStartDay: number, tz: TimeZoneResolver): boolean {
   const sector = (day: number): number => {
     const jd = dayNumberToJdUT(day, tzAt(tz, dayNumberToJdUT(day, 7)));
-    // Kinh do luc 00:00 gio dia phuong cua ngay do
+    // The solar longitude at 00:00 local time on that day
     const lon = sunApparentLongitude(asTT(jd + 69 / 86400));
     return Math.floor(lon / 30);
   };
@@ -125,36 +130,36 @@ function hasPrincipalTerm(startDay: number, nextStartDay: number, tz: TimeZoneRe
 }
 
 export interface LunarMonth {
-  /** So ngay lich dia phuong cua mung 1 */
+  /** Local day number of the first day of the month */
   start: number;
-  /** So thu tu thang 1..12 */
+  /** Month number, 1..12 */
   month: number;
   leap: boolean;
-  /** 29 (thieu) hoac 30 (du) */
+  /** 29 (short) or 30 (long) */
   length: number;
-  /** Nam am lich */
+  /** Lunar year */
   year: number;
-  /** Khoang cach tu thoi diem soc den nua dem (giay) */
+  /** Distance from the conjunction to midnight, in seconds */
   startMarginSeconds: number;
-  /** true = ngay bat dau thang nay khong chac chan (soc qua sat nua dem) */
+  /** true when this month's start date is uncertain (conjunction near midnight) */
   uncertain: boolean;
 }
 
 const yearCache = new Map<string, LunarMonth[]>();
 
 /**
- * Dung toan bo chu ky thang-11 -> thang-11 cho nam duong `year`,
- * tra ve danh sach thang co danh so va danh dau nhuan.
+ * Build the whole month-11 → month-11 cycle for solar year `year`, returning
+ * the months with their numbers and leap flags assigned.
  */
 export function buildCycle(year: number, tz: TimeZoneResolver): LunarMonth[] {
   const key = cacheKey(year, tz);
   const hit = yearCache.get(key);
   if (hit) return hit;
 
-  const a11 = month11StartDay(year - 1, tz); // thang 11 cua nam truoc
-  const b11 = month11StartDay(year, tz); // thang 11 cua nam nay
+  const a11 = month11StartDay(year - 1, tz); // month 11 of the previous year
+  const b11 = month11StartDay(year, tz); // month 11 of this year
 
-  // Lay moc trang moi cua a11 roi liet ke cac thang trong chu ky
+  // Anchor on the lunation of a11, then enumerate the months of the cycle
   let k = newMoonIndexNear(a11 - 0.5);
   while (newMoonDayNumber(k, tz) !== a11) k += newMoonDayNumber(k, tz) < a11 ? 1 : -1;
 
@@ -164,10 +169,10 @@ export function buildCycle(year: number, tz: TimeZoneResolver): LunarMonth[] {
     starts.push(d);
     if (d >= b11) break;
   }
-  const count = starts.length - 1; // so thang trong chu ky (12 hoac 13)
+  const count = starts.length - 1; // months in the cycle: 12, or 13 if leap
   const isLeapYear = count === 13;
 
-  // Tim thang nhuan: thang DAU TIEN khong co trung khi (bo qua chinh thang 11)
+  // The leap month is the FIRST without a principal term (month 11 excluded)
   let leapIndex = -1;
   if (isLeapYear) {
     for (let i = 1; i < count; i++) {
@@ -176,11 +181,11 @@ export function buildCycle(year: number, tz: TimeZoneResolver): LunarMonth[] {
         break;
       }
     }
-    if (leapIndex === -1) leapIndex = 1; // phong ho, gan nhu khong xay ra
+    if (leapIndex === -1) leapIndex = 1; // defensive; should not happen
   }
 
   const months: LunarMonth[] = [];
-  let num = 11; // thang dau chu ky la thang 11
+  let num = 11; // the cycle opens with month 11
   let lunarYear = year - 1;
   for (let i = 0; i < count; i++) {
     const leap = i === leapIndex;
@@ -214,14 +219,15 @@ export interface LunarDate {
   year: number;
   leap: boolean;
   /**
-   * true = thoi diem soc mo dau thang nay qua sat nua dem, nen ngay am lich
-   * co the lech 1 ngay tuy mo hinh DeltaT. Cac ban cai dat khac nhau se
-   * BAT DONG o dung cac ngay nay. Trung thuc hon la im lang doan bua.
+   * true when the conjunction opening this month lands so close to midnight
+   * that the date can differ by one day depending on the ΔT model. Different
+   * implementations disagree on exactly these days — saying so is more honest
+   * than guessing silently.
    */
   uncertain: boolean;
 }
 
-/** Ngay duong (so ngay lich dia phuong) -> ngay am. */
+/** Local day number → lunar date. */
 export function dayNumberToLunar(dayNumber: number, tz: TimeZoneResolver, solarYear: number): LunarDate {
   let cycle = buildCycle(solarYear, tz);
   if (dayNumber < cycle[0]!.start) cycle = buildCycle(solarYear - 1, tz);
@@ -233,17 +239,17 @@ export function dayNumberToLunar(dayNumber: number, tz: TimeZoneResolver, solarY
       return { day: dayNumber - m.start + 1, month: m.month, year: m.year, leap: m.leap, uncertain: m.uncertain };
     }
   }
-  // Roi ngoai chu ky da dung (bien nam) -> thu chu ky ke
+  // Outside the cycle we built (a year boundary) — try the next one
   const next = buildCycle(solarYear + 1, tz);
   for (const m of next) {
     if (dayNumber >= m.start && dayNumber < m.start + m.length) {
       return { day: dayNumber - m.start + 1, month: m.month, year: m.year, leap: m.leap, uncertain: m.uncertain };
     }
   }
-  throw new Error(`Khong dinh vi duoc ngay ${dayNumber} trong chu ky`);
+  throw new Error(`Could not locate day ${dayNumber} in any cycle`);
 }
 
-/** Ngay am -> so ngay lich dia phuong. Tra null neu thang nhuan do khong ton tai. */
+/** Lunar date → local day number. Returns null if that leap month does not exist. */
 export function lunarToDayNumber(
   day: number,
   month: number,
@@ -251,8 +257,8 @@ export function lunarToDayNumber(
   leap: boolean,
   tz: TimeZoneResolver,
 ): number | null {
-  // buildCycle(Y) chua thang 11,12 cua nam (Y-1) va thang 1..11 cua nam Y
-  // => hop cua hai chu ky Y va Y+1 phu du thang 1..12 cua nam am Y.
+  // buildCycle(Y) holds months 11–12 of year Y-1 and months 1–11 of year Y,
+  // so the union of cycles Y and Y+1 covers all of lunar year Y.
   const all = [...buildCycle(year, tz), ...buildCycle(year + 1, tz)];
   const m = all.find((x) => x.month === month && x.year === year && x.leap === leap);
   if (!m) return null;
@@ -260,7 +266,7 @@ export function lunarToDayNumber(
   return m.start + day - 1;
 }
 
-/** Xoa cache (dung khi doi nguon DeltaT hoac mui gio). */
+/** Clear the caches — call this after changing the ΔT source or timezone. */
 export function clearCalendarCache(): void {
   newMoonDayCache.clear();
   winterSolsticeCache.clear();

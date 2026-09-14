@@ -9,14 +9,17 @@ import {
 import { dayNumberToCivilDate, julianDay, localMidnightDayNumber, asUT } from '../time/julian.js';
 
 /**
- * Mui gio tinh lich cua Viet Nam: kinh tuyen 105 do Dong = UTC+7.
- * Can cu: Quyet dinh 121/CP (8/8/1967, hieu luc 1/1/1968), Dieu 3 — lich am
- * phai tinh theo gio chinh thuc cua Viet Nam. Tai khang dinh boi QD 134/2002/QD-TTg.
- * Day la khac biet tao ra cac nam Viet Nam an Tet lech Trung Quoc (UTC+8).
+ * The timezone the Vietnamese calendar is computed on: the 105°E meridian,
+ * i.e. UTC+7.
+ *
+ * Legal basis: Decree 121/CP (8 Aug 1967, in force 1 Jan 1968), Article 3 — the
+ * lunar calendar must be computed on Vietnam's official time; reaffirmed by
+ * Decision 134/2002/QD-TTg. This is precisely why Vietnam sometimes celebrates
+ * Tết a day apart from China (UTC+8).
  */
 export const VN_TIMEZONE = 7;
 
-/** Mui gio lich su (neu muon tai dung lich "theo dong ho thoi do"). */
+/** For reconstructing another region's calendar, or a historical variant. */
 export const CHINA_TIMEZONE = 8;
 
 export interface SolarDate {
@@ -25,7 +28,7 @@ export interface SolarDate {
   year: number;
 }
 
-/** Duong lich -> am lich. */
+/** Solar date → lunar date. */
 export function solarToLunar(
   day: number,
   month: number,
@@ -36,7 +39,7 @@ export function solarToLunar(
   return dayNumberToLunar(dayNumber, tz, year);
 }
 
-/** Am lich -> duong lich. Tra null neu ngay do khong ton tai. */
+/** Lunar date → solar date. Returns null when that date does not exist. */
 export function lunarToSolar(
   day: number,
   month: number,
@@ -50,7 +53,7 @@ export function lunarToSolar(
   return { day: d, month: m, year: y };
 }
 
-/** Nam am lich nhuan thang may (null = khong nhuan). */
+/** Which month is doubled in a leap year, or null if the year is not leap. */
 export function leapMonthOf(year: number, tz: TimeZoneResolver = VN_TIMEZONE): number | null {
   for (const m of [...buildCycle(year, tz), ...buildCycle(year + 1, tz)]) {
     if (m.leap && m.year === year) return m.month;
@@ -58,7 +61,7 @@ export function leapMonthOf(year: number, tz: TimeZoneResolver = VN_TIMEZONE): n
   return null;
 }
 
-/** So ngay cua mot thang am lich (29 hoac 30). */
+/** Length of a lunar month: 29 (short) or 30 (long) days. */
 export function lunarMonthLength(
   month: number,
   year: number,
