@@ -2,6 +2,8 @@
 
 A from-scratch Vietnamese lunar calendar SDK with high astronomical precision and zero dependencies.
 
+See it running: **[lunar-calendar-web-ten.vercel.app](https://lunar-calendar-web-ten.vercel.app)**
+
 > **Stated plainly up front:** the Vietnamese lunar calendar is a **defined rule set**, not a matter of interpretation — Decree 121/CP (1967), Article 3 requires it to be computed on Vietnam's official time, the 105°E meridian. Nobody is entitled to invent different dates. The goal of this SDK is therefore not to produce *different* dates, but to implement that rule set **more precisely, more transparently, and more honestly about the cases nobody can be sure of**.
 
 ## Why reimplement instead of using the common port

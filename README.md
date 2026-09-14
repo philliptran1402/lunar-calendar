@@ -4,19 +4,22 @@
 
 **The Vietnamese lunar calendar — a from-scratch SDK and a web app**
 
+### [→ lunar-calendar-web-ten.vercel.app](https://lunar-calendar-web-ten.vercel.app)
+
+[![live](https://img.shields.io/badge/demo-live-brightgreen)](https://lunar-calendar-web-ten.vercel.app)
 [![npm](https://img.shields.io/npm/v/@lunar-calendar/sdk)](https://www.npmjs.com/package/@lunar-calendar/sdk)
 [![license](https://img.shields.io/npm/l/@lunar-calendar/sdk)](LICENSE)
 [![zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](https://www.npmjs.com/package/@lunar-calendar/sdk)
 
 </div>
 
-![Calendar view](img/calendar.png)
+[![Calendar view](img/calendar.png)](https://lunar-calendar-web-ten.vercel.app)
 
 Look up lunar dates, sexagenary pillars (can chi), solar terms (tiết khí), auspicious hours and Vietnamese holidays. Everything runs in the browser — install it and it works **offline**, with nine editor colour themes and a Vietnamese/English interface.
 
 ## Terminal mode
 
-For people who would rather type than click: command history with `↑↓`, `Tab` completion, `Ctrl+L`, and a resizable window that remembers its size. Press **`` ` ``** to toggle.
+For people who would rather type than click: command history with `↑↓`, `Tab` completion, `Ctrl+L`, and a resizable window that remembers its size. Press **`` ` ``** to toggle — or [try it in the browser](https://lunar-calendar-web-ten.vercel.app).
 
 ![Terminal mode](img/terminal.png)
 
@@ -82,6 +85,12 @@ The production image is a **50 MB** nginx-alpine serving only static files. Its
 config sets `Cache-Control: immutable` on hashed assets and, importantly,
 `no-store` on `sw.js` — otherwise a stale service worker pins visitors to an old
 build forever.
+
+## Deploying
+
+The live site runs on Vercel with **Root Directory** set to `apps/web`. The web
+package builds the SDK first (`pnpm --filter @lunar-calendar/sdk build && …`),
+because `packages/sdk/dist/` is not committed and nothing else would build it.
 
 ## Layout
 
