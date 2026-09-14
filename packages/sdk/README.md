@@ -1,115 +1,123 @@
 # @lunar-calendar/sdk
 
-SDK lịch âm–dương **tự xây**, độ chính xác thiên văn cao, zero dependency.
+A from-scratch Vietnamese lunar calendar SDK with high astronomical precision and zero dependencies.
 
-> **Nói rõ trước:** lịch âm Việt Nam là **quy tắc được định nghĩa sẵn** (Quyết định 121/CP 1967, Điều 3: tính theo giờ chính thức VN = kinh tuyến 105°Đ). Không ai được phép "sáng tạo" ra ngày khác. Vì vậy mục tiêu của SDK này **không phải ra ngày khác**, mà là: cài đặt quy tắc đó **chính xác hơn**, **minh bạch hơn**, và **trung thực về chỗ không chắc chắn**.
+> **Stated plainly up front:** the Vietnamese lunar calendar is a **defined rule set**, not a matter of interpretation — Decree 121/CP (1967), Article 3 requires it to be computed on Vietnam's official time, the 105°E meridian. Nobody is entitled to invent different dates. The goal of this SDK is therefore not to produce *different* dates, but to implement that rule set **more precisely, more transparently, and more honestly about the cases nobody can be sure of**.
 
-## Vì sao viết lại thay vì dùng bản phổ biến
+## Why reimplement instead of using the common port
 
-Bản `amlich-hnd.js` (Hồ Ngọc Đức, 2006) là chuẩn de-facto ở VN. Sau khi đọc mã nguồn và đo đạc, đây là ba điểm yếu thật:
+`amlich-hnd.js` (Hồ Ngọc Đức, 2006) is the de-facto standard in Vietnam. After reading its source and measuring it, three weaknesses are real:
 
-| | Bản phổ biến | SDK này |
+| | The common port | This SDK |
 |---|---|---|
-| **Trăng mới** | Meeus *Astronomical Formulae for Calculators* (1982), mốc 1900, **13 số hạng** | Meeus *Astronomical Algorithms* ch.49, mốc J2000, **25 số hạng + 14 hiệu chỉnh hành tinh A1–A14** |
-| **Kinh độ Mặt Trời** | Ch.24 độ chính xác thấp (3 số hạng), dùng kinh độ **hình học** | **VSOP87 rút gọn** (~90 số hạng) + FK5 + chương sai + tinh sai → kinh độ **biểu kiến** |
-| **ΔT (TT→UT)** | Đa thức tự chế, **âm ở thế kỷ 20** (−29.8s năm 1944 trong khi thực tế +26.6s) | Espenak–Meeus (2006) + **bảng đo thực IERS** cho thời hiện đại, có vùng pha trộn, cho phép nạp nguồn riêng |
+| **New moon** | Meeus, *Astronomical Formulae for Calculators* (1982), epoch 1900, **13 periodic terms** | Meeus, *Astronomical Algorithms* ch. 49, epoch J2000, **25 periodic terms + 14 planetary corrections A1–A14** |
+| **Solar longitude** | ch. 24 low-accuracy path (3 terms), using **geometric** longitude | **Truncated VSOP87** (~90 terms) + FK5 + nutation + aberration → **apparent** longitude |
+| **ΔT (TT→UT)** | an ad-hoc polynomial, **negative through the 20th century** (−29.8s for 1944, where the true value is +26.6s) | Espenak–Meeus (2006) blended with **measured IERS values**, with a user-supplied override hook |
 
-Bỏ A1–A14 gây sai tới **112 giây**; dùng kinh độ hình học thay vì biểu kiến sai tới **~15 phút**; ΔF sai lệch làm **lệch ngày một cách hệ thống**. Cả ba đều chỉ lộ ra khi sự kiện rơi sát nửa đêm — nhưng khi lộ thì sai cả tháng lịch.
+Note the attribution: the file's header credits *Astronomical Algorithms* (1998), but the code is from Meeus's earlier 1982 book — a different, less accurate work.
 
-## Độ chính xác — đo được, không phải tuyên bố
+Dropping A1–A14 costs up to **112 seconds**. Using geometric instead of apparent longitude costs up to **~15 minutes**. A biased ΔT shifts dates **systematically**. None of it matters until an event falls near local midnight — and then it moves a whole calendar month.
 
-Đối chiếu với bảng NASA/Espenak (`astropixels.com/ephemeris`):
+## Measured accuracy, not claimed
 
-```
-Trăng mới 2026 (12 kỳ)     : lệch trung bình  ~1s,  tối đa 35s
-Điểm chí/phân 2020–2050    : lệch trung bình −11s,  tối đa 57s
-Công thức độ chính xác thấp: lệch 5.0″ ≈ 121s  ← lý do phải dùng VSOP87
-```
-
-Lưu ý trung thực: bảng NASA làm tròn đến **phút** (±30s) và được tính bằng chính mô hình ΔT của Espenak. Khi dùng cùng mô hình ΔT đó, sai lệch trăng mới trung bình còn **1.0 giây** — tức phần chênh còn lại là do mô hình ΔT chứ không phải thiên văn. SDK mặc định dùng **ΔT đo được** vì lịch dân dụng cần giờ UT thật.
-
-## Đối chiếu 73.414 ngày (1900–2100)
+Compared against NASA/Espenak tables (`astropixels.com/ephemeris`):
 
 ```
-Khớp : 73.292 / 73.414  (99,8338%)
-Lệch : 122 ngày = 6 đoạn
+New moons, 2026 (12 lunations)  : mean  ~1s, max 35s
+Solstices/equinoxes, 2020–2050  : mean −11s, max 57s
+The low-accuracy solar formula  : 5.0″ ≈ 121s   ← why VSOP87 is necessary
 ```
 
-Phân tích từng đoạn lệch:
+An honest caveat: NASA's published times are rounded to the **minute** (±30s) and are themselves computed with Espenak's own ΔT model. Using that same ΔT model, the mean new-moon deviation drops to **1.0 second** — meaning the remaining gap is the ΔT model, not the astronomy. The SDK defaults to **measured** ΔT, because civil calendars need real UT.
 
-| Đoạn | Nguyên nhân | Ai đúng |
+## Differential test: 73,414 days (1900–2100)
+
+```
+Agreement : 73,292 / 73,414  (99.8338%)
+Divergent : 122 days, in 6 runs
+```
+
+Every run was traced to a cause:
+
+| Run | Cause | Which is right |
 |---|---|---|
-| 1944, 1967, 2072, 2077 | Sóc cách nửa đêm **2–72 giây**; ΔT của bản cũ lệch 56–145s đẩy sang ngày khác | SDK này có ΔT đúng hơn, **nhưng 1967 chỉ cách 2 giây → không ai chắc được** |
-| 2054, 2062 | Bản cũ trả về **ngày âm = 0** (`0/4/2054`) — lỗi off-by-one | SDK này (trả 30/3) |
+| 1944, 1967, 2072, 2077 | New moon within **2–72 seconds** of midnight; the older port's ΔT is off by 56–145s and pushes it across the date line | This SDK has the better ΔT — **but 1967 is only 2 seconds away, so nobody can be sure** |
+| 2054, 2062 | The older port returns **lunar day 0** (e.g. `0/4/2054`) — an off-by-one bug | This SDK (returns `30/3`) |
 
-## Tính năng riêng: đánh dấu ngày KHÔNG CHẮC CHẮN
+This comparison ships as a regression test, pinned to exactly 122 divergences: if a change makes that number move, the test fails and the change has to be explained.
 
-Hệ quả trực tiếp của phân tích trên. Khi thời điểm sóc quá sát nửa đêm, **không cài đặt nào dám chắc** — ΔT tương lai phụ thuộc tốc độ quay của Trái Đất, không thể biết trước. Thay vì im lặng đoán bừa:
+## A distinguishing feature: flagging what cannot be known
+
+A direct consequence of the analysis above. When the conjunction lands within seconds of midnight, **no implementation can be certain** — future ΔT depends on the Earth's rotation and is genuinely unknowable. Rather than guess silently:
 
 ```ts
 const d = solarToLunar(7, 7, 1967);
 // { day: 1, month: 6, year: 1967, leap: false, uncertain: true }
-//   → sóc lúc 23:59:58 giờ VN, cách nửa đêm 2 giây
+//   → conjunction at 23:59:58 local time — 2 seconds from midnight
 ```
 
-Ngưỡng bất định tự nới theo thời gian (±20s trong kỳ có số đo, tăng dần khi ra xa) — xem `uncertaintySeconds()`.
+The uncertainty threshold widens with distance from the measured era; see `uncertaintySeconds()`.
 
-## API tiện dụng
-
-```ts
-import { getDayInfo, getMonthGrid } from '@lunar-calendar/sdk';
-
-getDayInfo(17, 2, 2026);   // âm lịch + can chi + tiết khí + giờ hoàng đạo + ngày lễ
-getMonthGrid(2, 2026);     // 42 ô lịch tháng, tuần bắt đầu Thứ Hai (chuẩn VN)
-```
-
-## Cài
+## Install
 
 ```bash
 npm i @lunar-calendar/sdk
 ```
 
-## Dùng
+## Usage
 
 ```ts
 import { solarToLunar, lunarToSolar, leapMonthOf, VN_TIMEZONE, CHINA_TIMEZONE } from '@lunar-calendar/sdk';
 
 solarToLunar(17, 2, 2026);            // { day:1, month:1, year:2026, leap:false, uncertain:false }
-lunarToSolar(1, 1, 1968);             // { day:29, month:1, year:1968 }  ← Tết Mậu Thân (VN)
-lunarToSolar(1, 1, 1968, false, CHINA_TIMEZONE); // { day:30, ... }      ← Trung Quốc, lệch 1 ngày
-leapMonthOf(1985);                    // 2   (Trung Quốc nhuận tháng 10 của 1984 → Tết lệch cả tháng)
+lunarToSolar(1, 1, 1968);             // { day:29, month:1, year:1968 }  ← Tết Mậu Thân, Vietnam
+lunarToSolar(1, 1, 1968, false, CHINA_TIMEZONE); // { day:30, … }        ← China, one day later
+leapMonthOf(1985);                    // 2  (China doubled month 10 of 1984 → Tết a month apart)
 ```
 
-Điểm vào theo tầng (tree-shakeable): `@lunar-calendar/sdk/astro`, `/calendar`, `/vn`.
+Convenience layer:
 
-**Múi giờ là tham số, không phải hằng số cứng** — cùng thuật toán chạy được lịch Trung Quốc (UTC+8), Hàn, Nhật; và nhận cả hàm `(jd) => offset` cho lịch sử múi giờ.
+```ts
+import { getDayInfo, getMonthGrid } from '@lunar-calendar/sdk';
 
-## Kiểm chứng lịch sử (phép thử vàng)
+getDayInfo(17, 2, 2026);   // lunar date, pillars, solar term, auspicious hours, holidays
+getMonthGrid(2, 2026);     // 42 cells, weeks starting Monday (Vietnamese convention)
+```
 
-6 năm Việt Nam ăn Tết lệch Trung Quốc — tái hiện đúng **cả 6** chỉ bằng đổi múi giờ:
+Tree-shakeable subpath entry points: `@lunar-calendar/sdk/astro`, `/calendar`, `/vn`.
 
-| Năm | Việt Nam (UTC+7) | Trung Quốc (UTC+8) |
+**The timezone is a parameter, not a constant** — the same engine reproduces the Chinese (UTC+8), Korean and Japanese calendars, and it accepts a `(jd) => offset` function for historical timezone changes.
+
+## Historical validation
+
+Six years where Vietnam's Lunar New Year differs from China's — **all six** reproduced by changing the timezone alone:
+
+| Year | Vietnam (UTC+7) | China (UTC+8) |
 |---|---|---|
-| 1968 | 29/1 | 30/1 |
-| 1969 | 16/2 | 17/2 |
-| **1985** | **21/1** | **20/2** *(lệch cả tháng — do vị trí tháng nhuận)* |
-| 2007 | 17/2 | 18/2 |
-| 2030 | 2/2 | 3/2 |
-| 2053 | 18/2 | 19/2 |
+| 1968 | 29 Jan | 30 Jan |
+| 1969 | 16 Feb | 17 Feb |
+| **1985** | **21 Jan** | **20 Feb** *(a month apart — leap-month placement)* |
+| 2007 | 17 Feb | 18 Feb |
+| 2030 | 2 Feb | 3 Feb |
+| 2053 | 18 Feb | 19 Feb |
 
-## Kiến trúc
+## Architecture
 
 ```
-src/time/      julian.ts (JD, kiểu TT/UT tách bạch) · deltat.ts (Espenak–Meeus + đo thực)
-src/astro/     nutation.ts · sun.ts (VSOP87) · moon.ts (Meeus 49 đầy đủ) · search.ts (dò nghiệm)
-src/calendar/  lunisolar.ts — quy tắc lịch, múi giờ là tham số, có cache
-src/vn/        canchi · solar-term · holiday — phần riêng của Việt Nam
+src/time/      julian.ts (JD, TT/UT kept apart) · deltat.ts (Espenak–Meeus + measured)
+src/astro/     nutation.ts · sun.ts (VSOP87) · moon.ts (full Meeus 49) · search.ts (root finding)
+src/calendar/  lunisolar.ts — the rules, timezone-parameterised, cached
+src/vn/        canchi · solar-term · holiday · almanac — Vietnam-specific layers
 ```
 
-Kiểu `JdTT` và `JdUT` được **branded** để trình biên dịch chặn việc lẫn hai thang thời gian — nguồn sai lệch hệ thống phổ biến nhất.
+`JdTT` and `JdUT` are **branded types**, so the compiler refuses to let the two time scales mix — the most common source of systematic error in calendar code.
 
-Hiệu năng: ~950.000 ngày/giây (có cache theo chu kỳ).
+Throughput: roughly 950,000 day conversions per second (cycle-level caching).
 
-## Nguồn
+## Sources
 
-Meeus, *Astronomical Algorithms* 2nd ed. (ch. 22, 25, 47, 49) · Espenak & Meeus, [ΔT polynomials](https://eclipse.gsfc.nasa.gov/SEhelp/deltatpoly2004.html) · [Bảng trăng mới & điểm chí NASA](https://astropixels.com/ephemeris/) · [Quyết định 121/CP](https://thuvienphapluat.vn/van-ban/Linh-vuc-khac/Quyet-dinh-121-CP-tinh-lich-quan-ly-lich-cua-Nha-nuoc-18212.aspx) · Trần Tiến Bình, *Lịch Việt Nam thế kỷ XX–XXI*.
+Meeus, *Astronomical Algorithms*, 2nd ed. (ch. 22, 25, 47, 49) · Espenak & Meeus, [ΔT polynomials](https://eclipse.gsfc.nasa.gov/SEhelp/deltatpoly2004.html) · [NASA new-moon and solstice tables](https://astropixels.com/ephemeris/) · [Decree 121/CP](https://thuvienphapluat.vn/van-ban/Linh-vuc-khac/Quyet-dinh-121-CP-tinh-lich-quan-ly-lich-cua-Nha-nuoc-18212.aspx) · Trần Tiến Bình, *Lịch Việt Nam thế kỷ XX–XXI*.
+
+## License
+
+[MIT](LICENSE)
