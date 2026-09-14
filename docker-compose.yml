@@ -1,0 +1,41 @@
+# Development is the default so that `git clone && docker compose up` just works.
+#   docker compose up                  → http://localhost:5173 (hot reload)
+#   docker compose --profile prod up   → http://localhost:8080 (production build)
+#   docker compose run --rm test       → run the test suite
+
+services:
+  web:
+    build:
+      context: .
+      target: dev
+    ports:
+      # Override with DEV_PORT=… if 5173 is taken on your machine
+      - "${DEV_PORT:-5173}:5173"
+    volumes:
+      - .:/app
+      # Anonymous volumes keep the container's installed dependencies from being
+      # shadowed by the host bind mount above (one per workspace package).
+      - /app/node_modules
+      - /app/packages/sdk/node_modules
+      - /app/apps/web/node_modules
+    environment:
+      # Bind mounts on macOS/Windows do not deliver inotify events reliably;
+      # polling costs a little CPU but makes hot reload actually work.
+      CHOKIDAR_USEPOLLING: "true"
+    stdin_open: true
+    tty: true
+
+  prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      target: runtime
+    ports:
+      - "${PROD_PORT:-8080}:80"
+    restart: unless-stopped
+
+  test:
+    profiles: ["test"]
+    build:
+      context: .
+      target: test

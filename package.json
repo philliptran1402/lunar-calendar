@@ -7,6 +7,10 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm --filter @lunar-calendar/sdk test",
-    "dev": "pnpm --filter @amlich/web dev"
+    "dev": "pnpm --filter @lunar-calendar/sdk build && pnpm --filter @lunar-calendar/web dev"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
   }
 }

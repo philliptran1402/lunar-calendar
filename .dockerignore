@@ -1,0 +1,16 @@
+# Never copy these into the build context — they are huge, machine-specific,
+# or rebuilt inside the image anyway.
+**/node_modules
+**/dist
+**/.tsbuildinfo
+**/*.tsbuildinfo
+.git
+.github
+img
+*.log
+.DS_Store
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+# The 1.6 MB regression fixture is only needed by tests, not by a build
+packages/sdk/test/fixtures
