@@ -12,5 +12,7 @@ img
 Dockerfile*
 docker-compose*.yml
 .dockerignore
-# The 1.6 MB regression fixture is only needed by tests, not by a build
-packages/sdk/test/fixtures
+# NOTE: packages/sdk/test/fixtures is deliberately NOT ignored. The 1.6 MB
+# snapshot is what the 73,414-day regression test reads; excluding it made three
+# tests fail inside the container while passing on the host. It never reaches the
+# runtime image anyway — only apps/web/dist is copied into nginx.
