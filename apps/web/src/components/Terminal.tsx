@@ -552,7 +552,7 @@ export function Terminal({
       {
         out: (
           <>
-            <div className="t-banner">âm lịch v0.1.0 — engine Hồ Ngọc Đức, GMT+7</div>
+            <div className="t-banner">âm lịch — @lunar-calendar/sdk, GMT+7 (105°Đ)</div>
             <div>
               {C.dim('hôm nay')} {`${TODAY.d}/${TODAY.m}/${TODAY.y}`} {C.dim('·')}{' '}
               {C.lun(`${info.lunar.day}/${info.lunar.month} âm`)} {C.dim('·')} {info.canChi.year}
