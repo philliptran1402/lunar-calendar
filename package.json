@@ -1,0 +1,12 @@
+{
+  "name": "lunar-calendar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lich Am Viet Nam — engine chuyen doi + web app",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm --filter @amlich/core test",
+    "dev": "pnpm --filter @amlich/web dev"
+  }
+}

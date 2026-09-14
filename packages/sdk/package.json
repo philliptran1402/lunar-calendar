@@ -1,0 +1,77 @@
+{
+  "name": "@lunar-calendar/sdk",
+  "version": "0.2.0",
+  "description": "SDK lich am-duong do chinh xac cao: ephemeris rieng (Meeus/VSOP87 truncated + Delta T), quy tac lunisolar tong quat, ho tro Viet Nam (GMT+7) va cac mui gio khac. Zero dependency.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./astro": {
+      "types": "./dist/astro/index.d.ts",
+      "import": "./dist/astro/index.js"
+    },
+    "./calendar": {
+      "types": "./dist/calendar/index.d.ts",
+      "import": "./dist/calendar/index.js"
+    },
+    "./vn": {
+      "types": "./dist/vn/index.d.ts",
+      "import": "./dist/vn/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/.tsbuildinfo"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "tsc -p tsconfig.json && node --test dist/*.test.js",
+    "fixtures": "node scripts/gen-fixtures.mjs",
+    "prepublishOnly": "tsc -p tsconfig.json && node --test dist/*.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  },
+  "license": "MIT",
+  "author": "Phillip Tran",
+  "keywords": [
+    "lunar-calendar",
+    "vietnamese",
+    "am-lich",
+    "lich-am",
+    "lunisolar",
+    "calendar",
+    "vietnam",
+    "tet",
+    "astronomy",
+    "meeus",
+    "vsop87",
+    "can-chi",
+    "tiet-khi",
+    "chinese-calendar",
+    "moon-phase",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/phillip-tech-labs/lunar-calendar.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/phillip-tech-labs/lunar-calendar/tree/main/packages/sdk#readme",
+  "bugs": {
+    "url": "https://github.com/phillip-tech-labs/lunar-calendar/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,97 @@
+/* ============================================================================
+   THEME — cac bang mau editor quen thuoc voi dan lap trinh.
+   Moi theme chi dinh nghia lai TOKEN; component khong bao gio dung hex truc tiep.
+   ========================================================================== */
+
+/* Ghi chu: cac theme duoi day dung BANG MAU GOC chinh hang (Dracula, Nord...).
+   Rieng token `--muted` duoc lam sang hon de dat WCAG AA 4.5 — no la token cua
+   RIENG app (dung cho chu co nghia: ngay ngoai thang, mo ta lenh), khong phai
+   mau lam nen ban sac cua theme. Accent dac trung giu nguyen de theme con la chinh no. */
+
+/* --- Dracula --- */
+:root[data-theme='dracula'] {
+  --bg: #191a21; --bg-elev: #21222c; --surface: #282a36; --surface-2: #343746;
+  --border: #343746; --border-bright: #4a4d5e;
+  --text: #f8f8f2; --text-dim: #b8b9c4; --muted: #8292c4;
+  --blue: #8be9fd; --cyan: #8be9fd; --purple: #bd93f9; --green: #50fa7b;
+  --yellow: #f1fa8c; --orange: #ffb86c; --red: #ff5555;
+  --term-bg: #14151b;
+}
+
+/* --- Nord --- */
+:root[data-theme='nord'] {
+  --bg: #242933; --bg-elev: #2e3440; --surface: #3b4252; --surface-2: #434c5e;
+  --border: #3b4252; --border-bright: #4c566a;
+  --text: #eceff4; --text-dim: #d8dee9; --muted: #a3b0c9;
+  --blue: #81a1c1; --cyan: #88c0d0; --purple: #b48ead; --green: #a3be8c;
+  --yellow: #ebcb8b; --orange: #d08770; --red: #bf616a;
+  --term-bg: #1e232b;
+}
+
+/* --- Catppuccin Mocha --- */
+:root[data-theme='mocha'] {
+  --bg: #11111b; --bg-elev: #181825; --surface: #1e1e2e; --surface-2: #313244;
+  --border: #313244; --border-bright: #45475a;
+  --text: #cdd6f4; --text-dim: #bac2de; --muted: #84889e;
+  --blue: #89b4fa; --cyan: #94e2d5; --purple: #cba6f7; --green: #a6e3a1;
+  --yellow: #f9e2af; --orange: #fab387; --red: #f38ba8;
+  --term-bg: #0b0b12;
+}
+
+/* --- Gruvbox Dark --- */
+:root[data-theme='gruvbox'] {
+  --bg: #1d2021; --bg-elev: #282828; --surface: #32302f; --surface-2: #3c3836;
+  --border: #3c3836; --border-bright: #504945;
+  --text: #ebdbb2; --text-dim: #d5c4a1; --muted: #a69788;
+  --blue: #83a598; --cyan: #8ec07c; --purple: #d3869b; --green: #b8bb26;
+  --yellow: #fabd2f; --orange: #fe8019; --red: #fb4934;
+  --term-bg: #161819;
+}
+
+/* --- One Dark --- */
+:root[data-theme='onedark'] {
+  --bg: #21252b; --bg-elev: #282c34; --surface: #2c313a; --surface-2: #3a3f4b;
+  --border: #3a3f4b; --border-bright: #4b5263;
+  --text: #abb2bf; --text-dim: #9da5b4; --muted: #949ba8;
+  --blue: #61afef; --cyan: #56b6c2; --purple: #c678dd; --green: #98c379;
+  --yellow: #e5c07b; --orange: #d19a66; --red: #e06c75;
+  --term-bg: #1b1f25;
+}
+
+/* --- Rosé Pine --- */
+:root[data-theme='rosepine'] {
+  --bg: #191724; --bg-elev: #1f1d2e; --surface: #26233a; --surface-2: #2f2b45;
+  --border: #2f2b45; --border-bright: #403d52;
+  --text: #e0def4; --text-dim: #c8c3e0; --muted: #8e8aa6;
+  --blue: #9ccfd8; --cyan: #9ccfd8; --purple: #c4a7e7; --green: #a3be8c;
+  --yellow: #f6c177; --orange: #ebbcba; --red: #eb6f92;
+  --term-bg: #13111c;
+}
+
+/* --- Solarized Dark --- */
+:root[data-theme='solarized'] {
+  --bg: #002b36; --bg-elev: #073642; --surface: #0a3d49; --surface-2: #0e4b59;
+  --border: #0e4b59; --border-bright: #16606f;
+  --text: #eee8d5; --text-dim: #93a1a1; --muted: #91a7af;
+  --blue: #268bd2; --cyan: #2aa198; --purple: #d33682; --green: #859900;
+  --yellow: #b58900; --orange: #cb4b16; --red: #dc322f;
+  --term-bg: #00212b;
+}
+
+/* --- Catppuccin Latte (SANG — cho ai thich nen trang) ---
+   Accent lay tu Latte nhung DAM HON: mau goc cua Latte chi dat 2.1–4.5
+   tuong phan tren nen sang (do bang script), duoi chuan WCAG AA 4.5 cho chu nho.
+   Cac gia tri duoi day deu >= 4.5 tren ca 3 nen sang cua theme. */
+:root[data-theme='latte'] {
+  --bg: #eff1f5; --bg-elev: #e6e9ef; --surface: #ffffff; --surface-2: #dce0e8;
+  --border: #ccd0da; --border-bright: #bcc0cc;
+  --text: #4c4f69; --text-dim: #4f5268; --muted: #5c5f72;
+  --blue: #1a56d0; --cyan: #0f6268; --purple: #7526d6; --green: #2b6e1d;
+  --yellow: #7f500f; --orange: #b04104; --red: #b60c31;
+  --term-bg: #e6e9ef;
+  --shadow: 0 8px 24px rgba(76, 79, 105, 0.12);
+  color-scheme: light;
+}
+:root[data-theme='latte'] body {
+  background: radial-gradient(1200px 600px at 15% -10%, #e6e9ef 0%, transparent 60%), var(--bg);
+}
